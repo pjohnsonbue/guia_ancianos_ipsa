@@ -1,0 +1,44 @@
+{
+  "name": "guia-ancianos-ipsa",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "dependencies": {
+    "@expo-google-fonts/fraunces": "^0.4.1",
+    "@expo-google-fonts/manrope": "^0.4.2",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-navigation/native": "^7.3.18",
+    "@react-navigation/native-stack": "^7.18.10",
+    "expo": "~57.0.20",
+    "expo-build-properties": "~57.0.17",
+    "expo-font": "~57.0.3",
+    "expo-linear-gradient": "~57.0.1",
+    "expo-splash-screen": "~57.0.8",
+    "expo-status-bar": "~57.0.1",
+    "expo-store-review": "~57.0.2",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-gesture-handler": "~2.32.0",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-svg": "^15.15.4"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.0",
+    "typescript": "~5.9.2",
+    "xlsx": "^0.18.5"
+  },
+  "scripts": {
+    "sync-content": "node scripts/content-sync/generate-content.mjs",
+    "check-content": "node scripts/content-sync/generate-content.mjs --check",
+    "typecheck": "tsc --noEmit",
+    "prestart": "npm run sync-content",
+    "preandroid": "npm run sync-content",
+    "preios": "npm run sync-content",
+    "preweb": "npm run sync-content",
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web"
+  },
+  "private": true
+}
