@@ -1,8 +1,8 @@
-# Guía de Formación de Ancianos IPSA
+# Curso de Formación de Ancianos
 
 A study app (iPhone and Android) for elders in training in the **Presbiterio San Andrés** (Iglesia Presbiteriana San Andrés, Argentina). The UI is in Argentine Spanish (voseo).
 
-It's a fork of the Repaso (GCSE Spanish) app and keeps its architecture: Expo (React Native + TypeScript), a spreadsheet as the content source of truth, flip/swipe flashcards with local progress. Audio, exam-board picking and the paywall were removed (everything is free), and a **Simulacro** (practice exam) was added.
+It's a guided course: the user **reads** a portion of a source document (a «Lectura»), **watches** the short videos that reinforce it, then answers **multiple-choice review questions** on what they read. A **Simulacro** (practice exam) draws from all of it. It began as a fork of the Repaso (GCSE Spanish) app and keeps its architecture: Expo (React Native + TypeScript), a spreadsheet as the content source of truth, progress stored on the device. Everything is free.
 
 ## Run it
 
@@ -11,39 +11,52 @@ npm install
 npx expo start
 ```
 
-Scan the QR code with Expo Go. Pinned to **Expo SDK 57**, like the other Lumena apps (see AGENTS.md).
+Scan the QR code with Expo Go (it must support **SDK 58**), or use a development build (`npx eas build --profile development`). On **Expo SDK 58** (React Native 0.88, React 19.3); see AGENTS.md.
 
 ## What's in it
 
 | | |
 |---|---|
-| Categories | Guía de liderazgo · Libro de orden · Confesión de fe de Westminster · Biblia |
-| Content | 21 packs, 916 flashcards, 226 multiple-choice questions |
-| Simulacro | 30 random questions, spread evenly over the 4 categories (7–8 each) and over each category's packs; options shuffled; instant feedback with the reference; result screen with %, pass/fail (70%), per-category breakdown, missed questions and history |
-| Review deck | "Repasá" on Home: every card seen but not ticked "La saqué" |
-| Fuente | Tapping "Fuente: …" on a card's back opens a popup with the verbatim supporting quote and exactly where it is (document › chapter › section / §). Bible cards quote the passage from the Reina-Valera 1909 (public domain, accents modernised) |
+| Course | Three documents split into 33 Lecturas, each with its videos and a «Preguntas de repaso» pack, plus 9 Bible packs in their own section at the end (see below) |
+| Content | 42 packs, 551 multiple-choice questions (10–15 per pack, scaled to the length of the reading). Questions are about content and meaning, never «which verse / which chapter / how many» trivia |
+| Lectura | A button on Home («Lectura: …», subtitle = the sections it covers, «n de N leídos»). It opens a table of contents of just those sections; the chapter reader has adjustable text size and a «Volver al curso» button after the last section |
+| Preguntas de repaso | One question at a time, options shuffled, instant feedback with an explanation and the reference (document section or Bible passage). End screen: score, «Repetir las que fallé», «Repetir todas» |
+| Simulacro | 30 random questions spread over the 4 categories and their packs; options shuffled; instant feedback; result screen with %, pass/fail (70%), per-category breakdown, missed questions and history |
+| Videos | Short vertical motion-graphics videos (captions burned in), shown on Home as a «Video de introducción» (to a whole document, at the top of its section, or just before a Lectura) or as a «Video de repaso» after a Lectura. Full-screen player (`expo-video`); a video is marked «Visto» once 90% has played |
+| Repasá | On Home: every question the user last answered wrong |
 | Progress | Stored on the device only (AsyncStorage). No accounts, nothing sent anywhere |
 
-### Packs
+### Course structure
 
-- **Guía de liderazgo** (source: *Documento maestro Guía de Liderazgo*): La iglesia y el rol del anciano · La historia de la iglesia · Las Santas Escrituras · Teología · La tarea de la iglesia en el mundo
-- **Libro de orden** (source: *Libro de Orden 2018*): Los esenciales de nuestra fe · Libro de gobierno · Libro de disciplina · Libro de adoración
-- **Confesión de fe de Westminster** (source: Fraternidad Reformada Argentina edition, 35 chapters; catechism not covered): Capítulos 1-10 · 11-20 · 21-35
-- **Biblia** (written independently; big-picture questions and theologically central passages read from an evangelical, Reformed perspective; every answer cites a passage): Pentateuco · Libros históricos · Sabiduría y poesía · Profetas menores · Profetas mayores · Evangelios + Hechos · Cartas paulinas · Cartas universales · Apocalipsis
+- **Guía de Formación de Liderazgo**, by sub-heading: *La iglesia* · *El anciano* · *Historia de la iglesia* (Historia de la iglesia, La Reforma Protestante, Nuestro contexto) · *Las Santas Escrituras* · *La teología* (La teología, Cristo y la salvación, El pacto y las últimas cosas) · *La tarea de la iglesia*
+- **Confesión de fe de Westminster** (Fraternidad Reformada Argentina edition; the Catecismo Menor isn't part of the course): Capítulos 1–5 · 6–8 · 9–12 · 13–16 · 17–20 · 21–24 · 25–29 · 30–31 · 32–33 · 34–35
+- **Libro de orden** (2018): *Los esenciales de nuestra fe*; *Libro de gobierno*: Cap. 1–4 · 5–9 · 10–15 · 16–18; *Libro de disciplina*: Cap. 1 · 2–4 · 5–7 · 8–10 · 11–14; *Libro de adoración*: Cap. 1–2 · 3 · 4–7
+- **Biblia** (its own section after the Libro de orden; question packs only, no reading; big-picture questions on theologically central passages from an evangelical, Reformed perspective): Pentateuco · Libros históricos · Sabiduría y poesía · Profetas menores · Profetas mayores · Evangelios + Hechos · Cartas paulinas · Cartas universales · Apocalipsis
 
-Every card and question carries a **Reference**: a section of the source document (e.g. `LG §16-12`, `LD §9-1I`, `CFW 1.4`, `Guía · Nicea`) or a Bible passage (e.g. `Génesis 12:1-3`). Every card also carries a **Source Quote** + **Source Location** (shown in the Fuente popup). These were extracted verbatim from the source documents (best-matching sentences within the referenced section, plus a handful of hand-picked ones); long passages are shortened with « … ». For Bible passages longer than ~420 characters, the most relevant verses are quoted and the location says "(selección de versículos)".
+Every question has an **Explanation** and a **Reference**: a section of the source document (e.g. `LG §16-12`, `CFW 1.4`) or a Bible passage (e.g. `Génesis 12:1-3`). The previous flashcard content (cards with verbatim «Fuente» quotes, and the old quiz bank) is archived in `archivo/Contenido_v1_tarjetas.xlsx`.
 
-> **Content review.** The Guía, Libro de orden and CFW content was written from the attached documents; the Bible content was written from general knowledge (Reina-Valera book names and wording). The Fuente quotes were matched automatically and spot-checked; skim them too. It's a study aid, not an official IPSA publication. Before release, have a pastor or the Comité de Educación del Presbiterio skim the spreadsheet; any fix is a cell edit.
+> **Content review.** The Guía, Libro de orden and CFW questions were written from the source documents; the Bible questions were written from general knowledge (Reina-Valera book names and wording). It's a study aid, not an official IPSA publication. Before release, have a pastor or the Comité de Educación del Presbiterio skim the spreadsheet; any fix is a cell edit.
 
 ## Editing content
 
-Edit **`Contenido_Guia_Ancianos.xlsx`** (tabs: Packs, Cards, Quiz, UI Text, Read Me), then run the app as usual. `npm start` regenerates `src/content/generated/*.ts`, `packs.ts`, `quiz.ts` and `uiText.ts`. See `scripts/content-sync/README.md`.
+Edit **`Contenido_Guia_Ancianos.xlsx`** (tabs: Course, Questions, Videos, UI Text, Read Me), then run the app as usual. `npm start` regenerates `src/content/course.ts`, `questions.ts`, `uiText.ts` and `videos.ts`. See `scripts/content-sync/README.md`.
 
 ```
 npm run sync-content    # regenerate by hand
 npm run check-content   # fail if generated files are stale (for CI)
 npm run typecheck
 ```
+
+### Adding a video
+
+1. Put the MP4 in `media/videos/<video-id>.mp4` (vertical 1080×1920, H.264; the source pages and scripts for the existing ones are in `media/videos/source/`).
+2. Make its thumbnail, a square crop of the title frame:
+   ```
+   ffmpeg -ss 7 -i media/videos/<video-id>.mp4 -frames:v 1 -vf "crop=1080:1080:0:140,scale=240:240" -q:v 3 media/videos/posters/<video-id>.jpg
+   ```
+3. Add a row to the **Videos** tab: Video ID, Title, Reading ID (the Lectura it goes with), Position (`section` = introduces the whole document, `before` = introduces the Lectura, `after` = review), Duration (m:ss).
+
+Videos are bundled into the app (about 7 MB each), so new ones ship with an app update. To keep the download small as the list grows, host the file anywhere that serves https and put its address in **Stream URL**; that video then streams instead and needs no local `.mp4`.
 
 ## Icons, splash and store assets
 
@@ -60,7 +73,7 @@ This writes `assets/icon.png` (also used as the in-app logo, `BrandMark`), the s
 ## Going live
 
 1. **New EAS project.** `app.json` has no `extra.eas.projectId` on purpose. Run `npx eas init` so this app doesn't build into another project.
-2. **Bundle ID** is `com.lumena.guiaancianos` (iOS and Android). Create the app records in App Store Connect and Play Console.
+2. **Bundle ID / package** is `com.lumena.formacionipsa` (iOS and Android). Create the app records in App Store Connect and Play Console.
 3. **Privacy policy.** Publish `release/privacy-policy.html` and point `PRIVACY_POLICY_URL` in `src/screens/SettingsScreen.tsx` at it.
 4. **Store listing.** Draft copy (Spanish) is in `store-listing-copy.md`. Screenshots still to do.
 5. `npx eas build --platform all`, then `npx eas submit`.
@@ -71,19 +84,23 @@ No in-app purchases, so no RevenueCat setup is needed.
 
 ```
 Contenido_Guia_Ancianos.xlsx  content source of truth
+archivo/                      the v1 flashcard content, kept for reference
 src/
   content/
-    types.ts                  Card, Pack, QuizQuestion, CategoryId
-    categories.ts             the 4 Home sections, review deck
+    types.ts                  Reading, Pack, CourseSection, Question, Video, CategoryId
+    categories.ts             the 4 categories, Repasá questions, reading-progress keys
+    documents/                document text (JSON built by scripts/documents/) + loader
     exam.ts                   Simulacro: buildExam (balanced sampling), scoring
-    packs.ts, quiz.ts, uiText.ts, generated/*.ts   generated
-  components/                 Flashcard (flip/swipe), icons, ProgressScrubber, SourceModal, decor (DashBand, BrandMark)
-  screens/                    Home, Study, Exam, ExamResult, Settings
-  state/AppState.tsx          card progress + exam history (AsyncStorage)
+    course.ts, questions.ts, uiText.ts, videos.ts   generated
+  components/                 QuestionView (shared by Practice and Exam), icons, decor (DashBand, BrandMark)
+  screens/                    Home, Reading (a Lectura's sections), Reader, Practice, Exam, ExamResult, Settings, Video
+  state/AppState.tsx          answers, sections read, watched videos, exam history (AsyncStorage)
   lib/                        i18n t(), rating
   theme/                      palette, type, pack icons
+media/videos/                 the videos (.mp4), posters/ thumbnails, source/ pages + scripts
 scripts/
   content-sync/               spreadsheet → TS generator
+  documents/                  original documents → reader JSON (build_documents.py)
   build_logo_icon.py          turns the IPSA logo into the master icon layers
   make_icons.py               icon + store graphics generator
 ```

@@ -61,7 +61,7 @@ export default function App() {
 
   return (
     // GestureHandlerRootView must wrap everything that uses
-    // react-native-gesture-handler (the Flashcard's swipe-to-navigate) —
+    // react-native-gesture-handler (used by React Navigation) —
     // without it gestures silently fail on Android.
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <SafeAreaProvider onLayout={hideNativeSplashOnce} style={{ backgroundColor: theme.colors.background }}>

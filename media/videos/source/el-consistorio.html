@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<style>
+  @font-face { font-family: "Fraunces"; font-weight: 900; src: url("../../../node_modules/@expo-google-fonts/fraunces/900Black/Fraunces_900Black.ttf"); }
+  @font-face { font-family: "Fraunces"; font-weight: 700; src: url("../../../node_modules/@expo-google-fonts/fraunces/700Bold/Fraunces_700Bold.ttf"); }
+  @font-face { font-family: "Fraunces"; font-weight: 600; font-style: italic; src: url("../../../node_modules/@expo-google-fonts/fraunces/600SemiBold_Italic/Fraunces_600SemiBold_Italic.ttf"); }
+  @font-face { font-family: "Manrope"; font-weight: 600; src: url("../../../node_modules/@expo-google-fonts/manrope/600SemiBold/Manrope_600SemiBold.ttf"); }
+  @font-face { font-family: "Manrope"; font-weight: 700; src: url("../../../node_modules/@expo-google-fonts/manrope/700Bold/Manrope_700Bold.ttf"); }
+  @font-face { font-family: "Manrope"; font-weight: 800; src: url("../../../node_modules/@expo-google-fonts/manrope/800ExtraBold/Manrope_800ExtraBold.ttf"); }
+  html, body { margin: 0; padding: 0; width: 1080px; height: 1920px; overflow: hidden; background: #1A2B51; }
+  #stage { position: absolute; inset: 0; }
+  svg { position: absolute; inset: 0; }
+  #captions { position: absolute; left: 70px; right: 70px; top: 1470px; height: 300px; }
+  .cap {
+    position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    font-family: "Manrope"; font-weight: 700; font-size: 50px; line-height: 1.32; color: #FFFFFF;
+    opacity: 0;
+  }
+  .cap em { font-style: normal; color: #F2C66A; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <svg id="svg" width="1080" height="1920" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#24396D" />
+        <stop offset="1" stop-color="#131E3B" />
+      </linearGradient>
+      <radialGradient id="glow" cx="0.5" cy="0.35" r="0.6">
+        <stop offset="0" stop-color="#3A5596" stop-opacity="0.55" />
+        <stop offset="1" stop-color="#3A5596" stop-opacity="0" />
+      </radialGradient>
+      <marker id="arrowGold" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#E8B54A" />
+      </marker>
+      <marker id="arrowBlue" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#8DB8F2" />
+      </marker>
+      <marker id="arrowRose" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#E06B7D" />
+      </marker>
+    </defs>
+    <rect width="1080" height="1920" fill="url(#bg)" />
+    <rect width="1080" height="1920" fill="url(#glow)" />
+    <g id="root"></g>
+  </svg>
+  <div id="captions"></div>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Palette + helpers
+// ---------------------------------------------------------------------------
+const C = {
+  navy: "#1A2B51", cream: "#F8F5EF", white: "#FFFFFF", muted: "#AFC0DE",
+  epi: "#E06B7D", con: "#4CC38A", pre: "#E8B54A", blue: "#8DB8F2",
+};
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const smooth = (x) => { x = clamp(x); return x * x * (3 - 2 * x); };
+const easeOut = (x) => 1 - Math.pow(1 - clamp(x), 3);
+const NS = "http://www.w3.org/2000/svg";
+const root = document.getElementById("root");
+
+function el(tag, attrs = {}, parent = root) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  parent.appendChild(e);
+  return e;
+}
+function group(parent = root, attrs = {}) { return el("g", attrs, parent); }
+function text(parent, x, y, str, o = {}) {
+  const t = el("text", {
+    x, y, "text-anchor": o.anchor || "middle",
+    "font-family": o.family || "Manrope", "font-weight": o.weight || 700,
+    "font-size": o.size || 34, fill: o.color || C.white,
+    ...(o.italic ? { "font-style": "italic" } : {}),
+    ...(o.ls ? { "letter-spacing": o.ls } : {}),
+  }, parent);
+  t.textContent = str;
+  return t;
+}
+// Pill-shaped label, centred on (x, y).
+function chip(parent, x, y, str, o = {}) {
+  const g = group(parent);
+  const size = o.size || 32;
+  const t = text(g, x, y + size * 0.36, str, { size, weight: 800, color: o.textColor || C.navy });
+  const w = t.getComputedTextLength() + size * 1.4;
+  const h = size * 1.75;
+  const r = el("rect", { x: x - w / 2, y: y - h / 2, width: w, height: h, rx: h / 2,
+    fill: o.fill || C.cream, stroke: o.stroke || "none", "stroke-width": o.stroke ? 3 : 0 }, g);
+  g.insertBefore(r, t);
+  return g;
+}
+function person(parent, x, y, s, color) {
+  const g = group(parent);
+  el("circle", { cx: x, cy: y - s * 0.52, r: s * 0.3, fill: color }, g);
+  el("path", { d: `M ${x - s * 0.5} ${y + s * 0.55} V ${y + s * 0.12} a ${s * 0.5} ${s * 0.42} 0 0 1 ${s} 0 V ${y + s * 0.55} Z`, fill: color }, g);
+  return g;
+}
+function church(parent, x, y, s, color, door = C.navy) {
+  const g = group(parent);
+  // cross
+  el("rect", { x: x - s * 0.04, y: y - s * 0.98, width: s * 0.08, height: s * 0.34, fill: color }, g);
+  el("rect", { x: x - s * 0.13, y: y - s * 0.88, width: s * 0.26, height: s * 0.075, fill: color }, g);
+  // roof + body
+  el("path", { d: `M ${x - s * 0.62} ${y - s * 0.1} L ${x} ${y - s * 0.64} L ${x + s * 0.62} ${y - s * 0.1} Z`, fill: color }, g);
+  el("rect", { x: x - s * 0.48, y: y - s * 0.16, width: s * 0.96, height: s * 0.72, fill: color }, g);
+  el("path", { d: `M ${x - s * 0.13} ${y + s * 0.56} V ${y + s * 0.2} a ${s * 0.13} ${s * 0.13} 0 0 1 ${s * 0.26} 0 V ${y + s * 0.56} Z`, fill: door }, g);
+  return g;
+}
+function line(parent, x1, y1, x2, y2, color, o = {}) {
+  return el("path", {
+    d: `M ${x1} ${y1} L ${x2} ${y2}`, stroke: color, "stroke-width": o.width || 5,
+    "stroke-linecap": "round", fill: "none", pathLength: 1,
+    ...(o.marker ? { "marker-end": `url(#${o.marker})` } : {}),
+  }, parent);
+}
+function book(parent, x, y, w, h, color, label) {
+  const g = group(parent);
+  el("rect", { x: x - w / 2, y: y - h / 2, width: w, height: h, rx: 10, fill: color }, g);
+  el("rect", { x: x - w / 2, y: y - h / 2, width: w * 0.12, height: h, rx: 6, fill: "rgba(0,0,0,0.18)" }, g);
+  el("rect", { x: x - w * 0.28, y: y - h * 0.3, width: w * 0.66, height: 6, rx: 3, fill: "rgba(255,255,255,0.75)" }, g);
+  el("rect", { x: x - w * 0.28, y: y - h * 0.2, width: w * 0.5, height: 6, rx: 3, fill: "rgba(255,255,255,0.55)" }, g);
+  if (label) label.forEach((l, i) => text(g, x, y + h / 2 + 52 + i * 40, l, { size: 32, weight: 800 }));
+  return g;
+}
+function openBible(parent, x, y, s) {
+  const g = group(parent);
+  el("path", { d: `M ${x} ${y - s * 0.32} C ${x - s * 0.35} ${y - s * 0.45} ${x - s * 0.8} ${y - s * 0.42} ${x - s} ${y - s * 0.32} V ${y + s * 0.38} C ${x - s * 0.8} ${y + s * 0.28} ${x - s * 0.35} ${y + s * 0.3} ${x} ${y + s * 0.42} Z`, fill: C.cream }, g);
+  el("path", { d: `M ${x} ${y - s * 0.32} C ${x + s * 0.35} ${y - s * 0.45} ${x + s * 0.8} ${y - s * 0.42} ${x + s} ${y - s * 0.32} V ${y + s * 0.38} C ${x + s * 0.8} ${y + s * 0.28} ${x + s * 0.35} ${y + s * 0.3} ${x} ${y + s * 0.42} Z`, fill: "#EFE9DE" }, g);
+  el("rect", { x: x - s * 0.03, y: y - s * 0.34, width: s * 0.06, height: s * 0.78, fill: "#D9CFBC" }, g);
+  for (let i = 0; i < 4; i++) {
+    el("rect", { x: x - s * 0.82, y: y - s * 0.18 + i * s * 0.13, width: s * 0.6, height: 5, rx: 2.5, fill: "#B9AE98" }, g);
+    el("rect", { x: x + s * 0.22, y: y - s * 0.18 + i * s * 0.13, width: s * 0.6, height: 5, rx: 2.5, fill: "#B9AE98" }, g);
+  }
+  // cross above
+  el("rect", { x: x - 5, y: y - s * 0.95, width: 10, height: s * 0.42, fill: C.pre }, g);
+  el("rect", { x: x - s * 0.13, y: y - s * 0.85, width: s * 0.26, height: 10, fill: C.pre }, g);
+  return g;
+}
+// Mini icons used in the intro and the summary.
+function miniPyramid(parent, x, y, s) {
+  const g = group(parent);
+  el("path", { d: `M ${x} ${y - s} L ${x + s} ${y + s * 0.75} L ${x - s} ${y + s * 0.75} Z`, fill: "none", stroke: C.epi, "stroke-width": 6, "stroke-linejoin": "round" }, g);
+  person(g, x, y - s * 0.35, s * 0.32, C.epi);
+  [-0.5, 0, 0.5].forEach((dx) => person(g, x + dx * s, y + s * 0.42, s * 0.24, C.epi));
+  return g;
+}
+function miniIslands(parent, x, y, s) {
+  const g = group(parent);
+  [[-0.5, -0.45], [0.5, -0.45], [-0.5, 0.5], [0.5, 0.5]].forEach(([dx, dy]) => {
+    el("circle", { cx: x + dx * s, cy: y + dy * s, r: s * 0.38, fill: "none", stroke: C.con, "stroke-width": 5 }, g);
+    church(g, x + dx * s, y + dy * s + s * 0.08, s * 0.32, C.con);
+  });
+  return g;
+}
+function miniNetwork(parent, x, y, s) {
+  const g = group(parent);
+  el("rect", { x: x - s * 0.55, y: y - s * 0.95, width: s * 1.1, height: s * 0.45, rx: 12, fill: "none", stroke: C.pre, "stroke-width": 5 }, g);
+  [-0.7, 0, 0.7].forEach((dx) => {
+    line(g, x + dx * s, y + s * 0.3, x + dx * s * 0.45, y - s * 0.5, C.pre, { width: 4 });
+    church(g, x + dx * s, y + s * 0.62, s * 0.34, C.pre);
+  });
+  [-0.3, 0, 0.3].forEach((dx) => person(g, x + dx * s, y - s * 0.72, s * 0.17, C.pre));
+  return g;
+}
+
+// ---------------------------------------------------------------------------
+// Script: caption chunks (what the narrator says), grouped by scene.
+// Sources: Libro de gobierno §16-3, §16-4A, §16-6, §16-8 a §16-14 (Consistorio,
+// funcionarios, responsabilidades, reuniones, quórum, actas, Presbiterio);
+// Guía de liderazgo: «El Consistorio», «Poder conjunto», «La representación
+// en el gobierno presbiteriano».
+// ---------------------------------------------------------------------------
+const SCRIPT = [
+  { scene: "intro", text: "¿Quién gobierna una congregación presbiteriana? Ninguna persona sola: el <em>Consistorio</em>.", cue: "intro.q" },
+  { scene: "intro", text: "Lo forman los pastores de la iglesia y todos los presbíteros gobernantes en servicio activo.", cue: "intro.members" },
+  { scene: "intro", text: "Toda la vida de la congregación está bajo su cuidado y supervisión.", cue: "intro.care", hold: 0.4 },
+
+  { scene: "resp", text: "Entre sus responsabilidades, el Libro de Orden le encarga:", cue: "resp.title" },
+  { scene: "resp", text: "velar por la conducta espiritual de los miembros y, cuando corresponde, aplicar la disciplina;", cue: "resp.1" },
+  { scene: "resp", text: "promover la evangelización, la primera tarea de la iglesia;", cue: "resp.2" },
+  { scene: "resp", text: "recibir miembros, llevar sus registros y supervisar la educación;", cue: "resp.3" },
+  { scene: "resp", text: "fijar el presupuesto y supervisar a los diáconos;", cue: "resp.4" },
+  { scene: "resp", text: "y supervisar la adoración, respetando la tarea propia del pastor en el sermón y los sacramentos.", cue: "resp.5", hold: 0.4 },
+
+  { scene: "mod", text: "El <em>moderador</em> es el pastor.", cue: "mod.title" },
+  { scene: "mod", text: "Mantiene el orden, conduce los temas, convoca y cierra las reuniones, que empiezan y terminan con oración.", cue: "mod.role" },
+  { scene: "mod", text: "El pastor también vota; pero si quiere presentar mociones o debatir, otro miembro modera mientras tanto.", cue: "mod.vote" },
+  { scene: "mod", text: "Si no hay pastor, el Consistorio elige a uno de sus miembros, o el Presbiterio nombra a un ministro.", cue: "mod.none", hold: 0.4 },
+
+  { scene: "sec", text: "El <em>secretario</em>, elegido por el Consistorio, lleva un registro cuidadoso: las actas.", cue: "sec.title" },
+  { scene: "sec", text: "Una vez aprobadas, las firman el secretario y el moderador.", cue: "sec.sign" },
+  { scene: "sec", text: "También registra bautismos, casamientos, defunciones y movimientos de miembros.", cue: "sec.reg", hold: 0.4 },
+
+  { scene: "meet", text: "El Consistorio se reúne por lo menos cada tres meses, convocado por el moderador,", cue: "meet.freq" },
+  { scene: "meet", text: "o cuando lo pide por escrito una cuarta parte de sus miembros, o lo dispone el Presbiterio.", cue: "meet.req" },
+  { scene: "meet", text: "Si el pastor está ausente, solo se reúne por una emergencia.", cue: "meet.nopastor" },
+  { scene: "meet", text: "El quórum mínimo: el pastor y dos ancianos; o el pastor y uno, si hay menos de cinco.", cue: "meet.quorum", hold: 0.4 },
+
+  { scene: "vote", text: "¿Cómo decide? El poder de gobernar no es individual: es una autoridad conjunta.", cue: "vote.title" },
+  { scene: "vote", text: "Se delibera, se ora y se vota, confiando en que Dios obra a través de la mayoría.", cue: "vote.flow" },
+  { scene: "vote", text: "Cada anciano vota según su conciencia, para representar la voluntad de Cristo, no para hacer encuestas.", cue: "vote.conscience", hold: 0.4 },
+
+  { scene: "pres", text: "Y el Consistorio no está solo:", cue: "pres.title" },
+  { scene: "pres", text: "elige al menos dos ancianos para el Presbiterio, y después escucha su informe.", cue: "pres.reps" },
+  { scene: "pres", text: "Cada año, el secretario eleva las actas al Presbiterio, que las revisa:", cue: "pres.actas" },
+  { scene: "pres", text: "puede devolver asuntos, señalar omisiones o pedir que se corrija lo que no se ajuste a la Constitución.", cue: "pres.review" },
+  { scene: "pres", text: "Porque un acto de cada corte es un acto de toda la iglesia.", cue: "pres.whole", hold: 0.5 },
+
+  { scene: "end", text: "Pastores y ancianos, juntos, cuidando el rebaño de Cristo.", cue: "end.call", hold: 1.0 },
+];
+
+// Timing: ~2.55 words per second (an unhurried narration pace), plus a short
+// breath between chunks and a longer pause at each scene change.
+const WPS = 2.55, GAP = 0.35, SCENE_GAP = 0.9, START = 0.8, TAIL = 4.0;
+const cues = {}, sceneStart = {}, sceneEnd = {};
+{
+  let t = START, prevScene = null;
+  for (const c of SCRIPT) {
+    if (prevScene && c.scene !== prevScene) { sceneEnd[prevScene] = t; t += SCENE_GAP; }
+    if (!(c.scene in sceneStart)) sceneStart[c.scene] = t - (prevScene ? SCENE_GAP * 0.6 : START);
+    const words = c.text.replace(/<[^>]+>/g, "").split(/\s+/).filter(Boolean).length;
+    c.start = t;
+    c.dur = Math.max(1.6, words / WPS);
+    c.end = t + c.dur;
+    if (c.cue) cues[c.cue] = t;
+    t = c.end + GAP + (c.hold || 0);
+    prevScene = c.scene;
+  }
+  sceneEnd[prevScene] = t + TAIL;
+  window.DURATION = t + TAIL;
+}
+const cue = (name, offset = 0) => cues[name] + offset;
+
+// ---------------------------------------------------------------------------
+// Animation registry
+// ---------------------------------------------------------------------------
+const anims = [];
+// Fade/slide an element in at `tin` and out at `tout`.
+function show(node, tin, tout = Infinity, o = {}) {
+  const dur = o.dur || 0.6, dy = o.dy ?? 26, sc = o.scale ?? 1, px = o.px ?? 540, py = o.py ?? 960;
+  anims.push((t) => {
+    const a = easeOut((t - tin) / dur);
+    const b = 1 - smooth((t - tout) / 0.45);
+    const op = Math.min(a, b) * (o.opacity ?? 1);
+    node.style.opacity = op;
+    if (op <= 0) { node.style.display = "none"; return; }
+    node.style.display = "";
+    const s = sc + (1 - sc) * a;
+    const extra = o.extra ? o.extra(t) : "";
+    node.setAttribute("transform", `${extra} translate(0 ${(1 - a) * dy}) translate(${px} ${py}) scale(${s}) translate(${-px} ${-py})`);
+  });
+  return node;
+}
+// Draw a path (pathLength=1) from tin over dur seconds.
+function draw(path, tin, dur = 0.7, tout = Infinity) {
+  path.setAttribute("stroke-dasharray", "1 1");
+  const marker = path.getAttribute("marker-end");
+  anims.push((t) => {
+    const p = easeOut((t - tin) / dur);
+    path.setAttribute("stroke-dashoffset", 1 - p);
+    // The arrowhead only appears once the line has reached it.
+    if (marker) { if (p > 0.92) path.setAttribute("marker-end", marker); else path.removeAttribute("marker-end"); }
+    path.style.opacity = (p > 0 ? 1 : 0) * (1 - smooth((t - tout) / 0.45));
+  });
+  return path;
+}
+// Dots that keep travelling along a segment, from tin until tout.
+function flow(parent, x1, y1, x2, y2, color, tin, tout, o = {}) {
+  const n = o.n || 2, period = o.period || 1.6, r = o.r || 9;
+  const dots = Array.from({ length: n }, () => el("circle", { r, fill: color }, parent));
+  anims.push((t) => {
+    const vis = smooth((t - tin) / 0.4) * (1 - smooth((t - tout) / 0.4));
+    dots.forEach((d, i) => {
+      const p = (((t - tin) / period + i / n) % 1 + 1) % 1;
+      d.setAttribute("cx", x1 + (x2 - x1) * p);
+      d.setAttribute("cy", y1 + (y2 - y1) * p);
+      d.style.opacity = vis * Math.sin(Math.PI * p);
+    });
+  });
+}
+// Re-colour an element's fills between two colours at time tin.
+function recolor(node, from, to, tin, dur = 0.5) {
+  const parse = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const A = parse(from), B = parse(to);
+  const shapes = node.querySelectorAll("circle, path, rect");
+  anims.push((t) => {
+    const p = smooth((t - tin) / dur);
+    const c = A.map((v, i) => Math.round(v + (B[i] - v) * p));
+    shapes.forEach((s) => s.setAttribute("fill", `rgb(${c.join(",")})`));
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Scene builders
+// ---------------------------------------------------------------------------
+function header(scene, eyebrow, title, color, size = 88) {
+  const g = group();
+  text(g, 540, 200, eyebrow, { size: 30, weight: 800, color: C.muted, ls: 4 });
+  text(g, 540, 300, title, { family: "Fraunces", weight: 900, size, color: C.white });
+  el("rect", { x: 440, y: 335, width: 200, height: 8, rx: 4, fill: color }, g);
+  show(g, sceneStart[scene] + 0.1, sceneEnd[scene] - 0.2, { dy: -20 });
+}
+function heart(parent, x, y, s, color) {
+  return el("path", { d: `M ${x} ${y + s * 0.35} C ${x - s * 0.9} ${y - s * 0.25} ${x - s * 0.45} ${y - s * 0.85} ${x} ${y - s * 0.4} C ${x + s * 0.45} ${y - s * 0.85} ${x + s * 0.9} ${y - s * 0.25} ${x} ${y + s * 0.35} Z`, fill: color }, parent);
+}
+function minister(parent, x, y, s) {
+  const g = group(parent);
+  person(g, x, y, s, C.blue);
+  book(g, x + s * 0.55, y + s * 0.35, s * 0.42, s * 0.52, C.cream);
+  return g;
+}
+function elder(parent, x, y, s, color = C.pre) { return person(parent, x, y, s, color); }
+function row(parent, y, label, color, o = {}) {
+  const g = group(parent);
+  el("rect", { x: 110, y: y - 46, width: 860, height: 92, rx: 46, fill: "rgba(248,245,239,0.06)", stroke: color, "stroke-opacity": 0.6, "stroke-width": 3 }, g);
+  el("circle", { cx: 160, cy: y, r: 32, fill: color }, g);
+  if (o.num) text(g, 160, y + 13, o.num, { family: "Fraunces", weight: 900, size: 38, color: C.navy });
+  text(g, 215, y + 12, label, { anchor: "start", size: o.size || 35, weight: 800, color: C.cream });
+  return g;
+}
+// The Consistorio around its table: pastor at the head, six elders.
+const SEATS = [[250, 700], [830, 700], [215, 880], [865, 880], [400, 975], [680, 975]];
+function table(parent, o = {}) {
+  const g = group(parent);
+  el("ellipse", { cx: 540, cy: 815, rx: 250, ry: 105, fill: "rgba(232,181,74,0.10)", stroke: C.pre, "stroke-width": 4 }, g);
+  const elders = SEATS.map(([x, y]) => elder(g, x, y, 92));
+  const pastor = o.noPastor ? null : minister(parent, 540, 610, 100);
+  return { g, elders, pastor };
+}
+
+function buildIntro() {
+  const S = "intro", end = sceneEnd[S] - 0.2;
+  const emb = el("image", { href: "../../../assets/source/emblem.png", x: 540 - 60, y: 160, width: 120, height: 135 }, group());
+  show(emb.parentNode, sceneStart[S], end, { dy: 0, scale: 0.9, py: 230 });
+  const t1 = group();
+  text(t1, 540, 420, "El Consistorio", { family: "Fraunces", weight: 900, size: 104 });
+  text(t1, 540, 480, "también llamado «Sesión»", { size: 32, weight: 700, color: C.muted });
+  show(t1, cue("intro.q", 2.2), end, { dy: 30 });
+  const tb = group();
+  const t = table(tb);
+  show(tb, cue("intro.members", 0.3), end, { dy: 30 });
+  const lb = group();
+  chip(lb, 300, 1090, "Pastores", { size: 30, fill: "#CFE0F7" });
+  chip(lb, 760, 1090, "Presbíteros gobernantes", { size: 30, fill: C.pre });
+  show(lb, cue("intro.members", 1.6), end);
+  const care = group();
+  el("path", { d: "M 130 1290 Q 540 1150 950 1290", stroke: C.cream, "stroke-width": 5, fill: "none", "stroke-dasharray": "12 12" }, care);
+  [-3, -2, -1, 0, 1, 2, 3].forEach((k) => person(care, 540 + k * 95, 1340, 44, C.cream));
+  show(care, cue("intro.care", 0.4), end, { dy: 30 });
+}
+
+function buildResponsibilities() {
+  const S = "resp", end = sceneEnd[S] - 0.2;
+  header(S, "LIBRO DE GOBIERNO §16-10", "Responsabilidades", C.pre, 80);
+  const g = group();
+  const items = [
+    ["Velar por los miembros y disciplinar", "resp.1"],
+    ["Promover la evangelización", "resp.2"],
+    ["Miembros, registros y educación", "resp.3"],
+    ["Presupuesto y diáconos", "resp.4"],
+    ["Supervisar la adoración", "resp.5"],
+  ];
+  items.forEach(([w, c], i) => {
+    const r = group(g);
+    row(r, 480 + i * 122, w, C.pre, { num: String(i + 1) });
+    show(r, cue(c, 0.2), end, { dy: 30 });
+  });
+  const first = group(g);
+  chip(first, 830, 602, "La primera tarea", { size: 26, fill: C.con });
+  show(first, cue("resp.2", 1.4), end, { dy: 0, scale: 0.6, px: 830, py: 602 });
+  const pastor = group(g);
+  minister(pastor, 220, 1170, 110);
+  text(pastor, 330, 1150, "Sermón y sacramentos:", { anchor: "start", size: 34, weight: 800, color: C.blue });
+  text(pastor, 330, 1200, "la tarea propia del pastor", { anchor: "start", size: 34, weight: 800, color: C.cream });
+  show(pastor, cue("resp.5", 1.6), end, { dy: 30 });
+  const more = group(g);
+  text(more, 540, 1330, "…y más: ver LG §16-10", { size: 28, weight: 700, color: C.muted, italic: true });
+  show(more, cue("resp.5", 3.0), end);
+}
+
+function buildModerator() {
+  const S = "mod", end = sceneEnd[S] - 0.2;
+  header(S, "FUNCIONARIOS DEL CONSISTORIO", "El moderador", C.blue);
+  const g = group();
+  const tb = group(g);
+  const t = table(tb, { noPastor: true });
+  show(tb, cue("mod.title", 0.1), end, { dy: 30 });
+  const p = group(g);
+  minister(p, 540, 610, 100);
+  show(p, cue("mod.title", 0.2), cue("mod.none"), { dy: 30 });
+  const chipP = group(g);
+  chip(chipP, 540, 480, "Moderador", { size: 30, fill: C.blue });
+  show(chipP, cue("mod.title", 0.8), cue("mod.vote", 2.6), { dy: -12 });
+  // Duties.
+  [["Mantiene el orden", 300, 1130], ["Conduce los temas", 780, 1130], ["Convoca y cierra", 300, 1220], ["Oración al inicio y al final", 760, 1220]].forEach(([w, x, y], i) => {
+    const c = group(g);
+    chip(c, x, y, w, { size: 28, fill: C.cream });
+    show(c, cue("mod.role", 0.4 + i * 1.1), cue("mod.vote"), { dy: 20 });
+  });
+  // The pastor votes; to debate, someone else moderates.
+  const votes = group(g);
+  chip(votes, 540, 1130, "El pastor también vota", { size: 30, fill: "#CFE0F7" });
+  show(votes, cue("mod.vote", 0.3), cue("mod.none"));
+  const temp = group(g);
+  chip(temp, 250, 590, "Moderador temporario", { size: 26, fill: C.pre });
+  show(temp, cue("mod.vote", 2.8), cue("mod.none"), { dy: -12 });
+  const debate = group(g);
+  el("path", { d: "M 640 470 h 170 a 22 22 0 0 1 22 22 v 50 a 22 22 0 0 1 -22 22 h -120 l -30 26 v -26 h -20 a 22 22 0 0 1 -22 -22 v -50 a 22 22 0 0 1 22 -22 z", fill: C.cream }, debate);
+  text(debate, 725, 528, "Moción…", { size: 28, weight: 800, color: C.navy });
+  show(debate, cue("mod.vote", 2.0), cue("mod.none"), { dy: 0, scale: 0.6, px: 725, py: 520 });
+  // No pastor.
+  const none = group(g);
+  chip(none, 540, 1130, "Elige a uno de sus miembros", { size: 30, fill: C.pre });
+  chip(none, 540, 1220, "o el Presbiterio nombra a un ministro", { size: 30, fill: C.cream });
+  show(none, cue("mod.none", 0.8), end, { dy: 20 });
+  const empty = group(g);
+  el("circle", { cx: 540, cy: 600, r: 62, fill: "none", stroke: C.muted, "stroke-width": 4, "stroke-dasharray": "10 10" }, empty);
+  text(empty, 540, 615, "?", { family: "Fraunces", weight: 900, size: 54, color: C.muted });
+  show(empty, cue("mod.none", 0.4), end, { dy: 0 });
+}
+
+function buildSecretary() {
+  const S = "sec", end = sceneEnd[S] - 0.2;
+  header(S, "FUNCIONARIOS DEL CONSISTORIO", "El secretario", C.cream);
+  const g = group();
+  const b = group(g);
+  book(b, 540, 610, 230, 290, C.cream);
+  text(b, 540, 810, "Actas", { family: "Fraunces", weight: 900, size: 58, color: C.cream });
+  show(b, cue("sec.title", 0.4), end, { dy: 30, scale: 0.85, py: 610 });
+  [["Secretario", 300], ["Moderador", 780]].forEach(([w, x], i) => {
+    const s = group(g);
+    el("rect", { x: x - 170, y: 960, width: 340, height: 4, fill: C.muted }, s);
+    text(s, x, 1005, w, { size: 30, weight: 800, color: C.muted });
+    show(s, cue("sec.sign", 0.2), end);
+    const sig = el("path", { d: `M ${x - 120} 945 c 25 -45 45 -45 50 0 s 30 30 45 -20 s 35 -30 45 10 s 30 20 60 -15`, stroke: C.pre, "stroke-width": 5, fill: "none", "stroke-linecap": "round", pathLength: 1 }, g);
+    draw(sig, cue("sec.sign", 0.8 + i * 1.0), 0.9, end);
+  });
+  [["Bautismos", 300, 1130], ["Casamientos", 780, 1130], ["Defunciones", 300, 1220], ["Miembros", 780, 1220]].forEach(([w, x, y], i) => {
+    const c = group(g);
+    chip(c, x, y, w, { size: 30, fill: C.cream });
+    show(c, cue("sec.reg", 0.4 + i * 0.7), end, { dy: 20 });
+  });
+}
+
+function buildMeetings() {
+  const S = "meet", end = sceneEnd[S] - 0.2;
+  header(S, "FUNCIONAMIENTO", "Las reuniones", C.pre);
+  const g = group();
+  const out1 = cue("meet.quorum");
+  ["Ene–Mar", "Abr–Jun", "Jul–Sep", "Oct–Dic"].forEach((w, i) => {
+    const x = 195 + i * 230;
+    const c = group(g);
+    el("rect", { x: x - 95, y: 430, width: 190, height: 170, rx: 24, fill: "rgba(248,245,239,0.06)", stroke: C.pre, "stroke-width": 4 }, c);
+    el("rect", { x: x - 95, y: 430, width: 190, height: 44, rx: 22, fill: C.pre }, c);
+    text(c, x, 462, w, { size: 26, weight: 800, color: C.navy });
+    el("circle", { cx: x, cy: 540, r: 34, fill: C.con }, c);
+    el("path", { d: `M ${x - 16} 540 l 11 12 l 22 -24`, stroke: C.navy, "stroke-width": 8, fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" }, c);
+    show(c, cue("meet.freq", 0.5 + i * 0.5), out1, { dy: 20 });
+  });
+  const pie = group(g);
+  el("circle", { cx: 300, cy: 790, r: 100, fill: "rgba(248,245,239,0.12)" }, pie);
+  el("path", { d: "M 300 790 L 300 690 A 100 100 0 0 1 400 790 Z", fill: C.pre }, pie);
+  text(pie, 300, 940, "¼ de los miembros", { size: 30, weight: 800 });
+  text(pie, 300, 980, "por escrito", { size: 30, weight: 700, color: C.muted });
+  show(pie, cue("meet.req", 0.4), out1, { dy: 20 });
+  const pr = group(g);
+  el("rect", { x: 620, y: 730, width: 320, height: 120, rx: 30, fill: "rgba(232,181,74,0.1)", stroke: C.pre, "stroke-width": 5 }, pr);
+  text(pr, 780, 805, "Presbiterio", { family: "Fraunces", weight: 900, size: 44, color: C.pre });
+  text(pr, 780, 940, "puede convocarlo", { size: 30, weight: 700, color: C.muted });
+  show(pr, cue("meet.req", 2.8), out1, { dy: 20 });
+  const em = group(g);
+  chip(em, 540, 1110, "Pastor ausente: solo emergencias", { size: 30, fill: C.epi, textColor: C.white });
+  show(em, cue("meet.nopastor", 0.3), out1, { dy: 20 });
+  // Quorum.
+  const q = group(g);
+  const qp = minister(q, 200, 820, 110);
+  const qe = [380, 530, 680, 830].map((x) => elder(q, x, 820, 100));
+  show(q, cue("meet.quorum", 0.1), end, { dy: 30 });
+  anims.push((t) => {
+    const d = smooth((t - cue("meet.quorum", 1.0)) / 0.6);
+    [qe[2], qe[3]].forEach((e) => (e.style.opacity = 1 - 0.75 * d));
+  });
+  const qc = group(g);
+  el("rect", { x: 110, y: 690, width: 520, height: 230, rx: 40, fill: "none", stroke: C.con, "stroke-width": 6 }, qc);
+  chip(qc, 370, 690, "Quórum mínimo", { size: 30, fill: C.con });
+  show(qc, cue("meet.quorum", 1.2), end, { dy: 0, scale: 1.05, px: 370, py: 805 });
+  const qs = group(g);
+  text(qs, 540, 1060, "Con menos de cinco ancianos:", { size: 32, weight: 700, color: C.muted });
+  text(qs, 540, 1110, "el pastor y un anciano", { size: 36, weight: 800, color: C.cream });
+  show(qs, cue("meet.quorum", 3.2), end, { dy: 20 });
+}
+
+function buildVoting() {
+  const S = "vote", end = sceneEnd[S] - 0.2;
+  header(S, "PODER CONJUNTO", "Las decisiones", C.pre);
+  const g = group();
+  const out1 = cue("vote.conscience");
+  const tb = group(g);
+  table(tb);
+  show(tb, cue("vote.title", 0.2), out1, { dy: 30 });
+  const nobody = group(g);
+  chip(nobody, 540, 470, "Nadie gobierna solo", { size: 30, fill: C.cream });
+  show(nobody, cue("vote.title", 1.4), out1, { dy: -12 });
+  const steps = [["Deliberar", 230], ["Orar", 540], ["Votar", 850]];
+  steps.forEach(([w, x], i) => {
+    const c = group(g);
+    chip(c, x, 1130, w, { size: 34, fill: C.pre });
+    show(c, cue("vote.flow", 0.2 + i * 0.9), out1, { dy: 20 });
+    if (i < 2) draw(line(g, x + 110, 1130, x + 200, 1130, C.cream, { width: 5, marker: "arrowGold" }), cue("vote.flow", 0.6 + i * 0.9), 0.4, out1);
+  });
+  const maj = group(g);
+  for (let i = 0; i < 7; i++) el("rect", { x: 230 + i * 92, y: 1220, width: 80, height: 40, rx: 10, fill: i < 5 ? C.con : "rgba(248,245,239,0.25)" }, maj);
+  text(maj, 540, 1310, "Dios obra a través de la mayoría", { size: 32, weight: 800, color: C.cream });
+  show(maj, cue("vote.flow", 2.8), out1, { dy: 20 });
+  // Conscience, not polls.
+  const cross = group(g);
+  el("rect", { x: 530, y: 410, width: 20, height: 150, rx: 6, fill: C.pre }, cross);
+  el("rect", { x: 480, y: 450, width: 120, height: 20, rx: 6, fill: C.pre }, cross);
+  text(cross, 540, 620, "La voluntad de Cristo", { family: "Fraunces", weight: 900, size: 50, color: C.pre });
+  show(cross, cue("vote.conscience", 0.2), end, { dy: -30 });
+  draw(line(g, 540, 870, 540, 660, C.pre, { width: 6, marker: "arrowGold" }), cue("vote.conscience", 1.6), 0.6, end);
+  const e2 = group(g);
+  elder(e2, 540, 960, 140);
+  show(e2, cue("vote.conscience", 0.4), end, { dy: 30 });
+  const cons = group(g);
+  el("circle", { cx: 235, cy: 955, r: 70, fill: "none", stroke: C.cream, "stroke-width": 5 }, cons);
+  heart(cons, 235, 965, 70, C.cream);
+  text(cons, 235, 1085, "Conciencia", { size: 28, weight: 800, color: C.cream });
+  show(cons, cue("vote.conscience", 1.0), end, { dy: 0, scale: 0.6, px: 235, py: 955 });
+  const poll = group(g);
+  el("rect", { x: 760, y: 880, width: 170, height: 150, rx: 18, fill: "none", stroke: C.muted, "stroke-width": 4 }, poll);
+  [0, 1, 2].forEach((k) => el("rect", { x: 785, y: 905 + k * 40, width: 120, height: 14, rx: 7, fill: C.muted }, poll));
+  el("path", { d: "M 745 865 L 945 1045", stroke: C.epi, "stroke-width": 9, "stroke-linecap": "round" }, poll);
+  text(poll, 845, 1085, "Encuestas", { size: 28, weight: 800, color: C.muted });
+  show(poll, cue("vote.conscience", 3.4), end, { dy: 0, scale: 0.6, px: 845, py: 955 });
+}
+
+function buildPresbytery() {
+  const S = "pres", end = sceneEnd[S] - 0.2;
+  header(S, "REVISIÓN Y CONTROL", "Con el Presbiterio", C.pre, 80);
+  const g = group();
+  const top = group(g);
+  el("rect", { x: 140, y: 420, width: 800, height: 200, rx: 40, fill: "rgba(232,181,74,0.12)", stroke: C.pre, "stroke-width": 6 }, top);
+  text(top, 540, 490, "Presbiterio", { family: "Fraunces", weight: 900, size: 54, color: C.pre });
+  [-2, -1, 1, 2].forEach((k) => person(top, 540 + k * 90, 575, 44, k % 2 ? C.blue : C.pre));
+  show(top, cue("pres.title", 0.2), end, { dy: -30 });
+  const bot = group(g);
+  el("rect", { x: 140, y: 1030, width: 800, height: 220, rx: 40, fill: "rgba(232,181,74,0.08)", stroke: C.pre, "stroke-width": 5 }, bot);
+  text(bot, 540, 1100, "Consistorio", { family: "Fraunces", weight: 900, size: 54, color: C.pre });
+  minister(bot, 300, 1185, 64);
+  [420, 520, 620, 720, 820].forEach((x) => elder(bot, x, 1185, 60));
+  show(bot, cue("pres.title", 0.6), end, { dy: 30 });
+  // Two elders go up as representatives; a report comes back.
+  const reps = group(g);
+  elder(reps, 230, 840, 80);
+  elder(reps, 330, 840, 80);
+  text(reps, 280, 930, "Al menos 2", { size: 28, weight: 800, color: C.pre });
+  show(reps, cue("pres.reps", 0.3), end, { dy: 120 });
+  draw(line(g, 250, 1020, 250, 640, C.pre, { width: 5, marker: "arrowGold" }), cue("pres.reps", 0.8), 0.7, end);
+  draw(line(g, 400, 640, 400, 1020, C.blue, { width: 5, marker: "arrowBlue" }), cue("pres.reps", 3.0), 0.7, end);
+  const rep = group(g);
+  chip(rep, 400, 980, "Informe", { size: 26, fill: "#CFE0F7" });
+  show(rep, cue("pres.reps", 3.4), end);
+  // Minutes travel up once a year.
+  const actas = group(g);
+  book(actas, 820, 0, 90, 110, C.cream);
+  text(actas, 820, 92, "Actas", { size: 26, weight: 800 });
+  const t0 = cue("pres.actas", 0.6);
+  anims.push((t) => {
+    const p = smooth((t - t0) / 1.8);
+    actas.style.opacity = smooth((t - t0 + 0.3) / 0.3) * (1 - smooth((t - end) / 0.45));
+    actas.setAttribute("transform", `translate(0 ${960 - p * 280})`);
+  });
+  const yr = group(g);
+  chip(yr, 820, 975, "Cada año", { size: 26, fill: C.cream });
+  show(yr, cue("pres.actas", 0.2), cue("pres.actas", 2.2));
+  [["Devolver asuntos", 1.0], ["Señalar omisiones", 2.2], ["Pedir correcciones", 3.6]].forEach(([w, off], i) => {
+    const c = group(g);
+    chip(c, 590, 760 + i * 80, w, { size: 28, fill: C.pre });
+    show(c, cue("pres.review", off), end, { dy: 20 });
+  });
+  const whole = group(g);
+  chip(whole, 540, 1340, "Un acto de cada corte es un acto de toda la iglesia", { size: 28, fill: C.cream });
+  show(whole, cue("pres.whole", 0.4), end, { dy: 20 });
+}
+
+function buildEnd() {
+  const S = "end";
+  const g = group();
+  const tb = group(g);
+  table(tb);
+  show(tb, sceneStart[S] + 0.3, Infinity, { dy: 30 });
+  const t = group(g);
+  text(t, 540, 1150, "Cuidando el rebaño de Cristo", { family: "Fraunces", weight: 900, size: 64 });
+  show(t, cue("end.call", 1.6), Infinity);
+  const emb = el("image", { href: "../../../assets/source/emblem.png", x: 540 - 60, y: 1190, width: 120, height: 135 }, group(g));
+  show(emb.parentNode, cue("end.call", 2.2), Infinity, { dy: 0, scale: 0.85, py: 1255 });
+  const t1 = group(g);
+  text(t1, 540, 1380, "Iglesia Presbiteriana San Andrés", { family: "Fraunces", weight: 900, size: 40 });
+  show(t1, cue("end.call", 2.6), Infinity);
+}
+
+function BUILD_ALL() {
+  buildIntro(); buildResponsibilities(); buildModerator(); buildSecretary(); buildMeetings(); buildVoting(); buildPresbytery(); buildEnd();
+}
+
+// ---------------------------------------------------------------------------
+// Captions + progress bar
+// ---------------------------------------------------------------------------
+const capBox = document.getElementById("captions");
+const capEls = SCRIPT.map((c) => {
+  const d = document.createElement("div");
+  d.className = "cap";
+  d.innerHTML = `<span>${c.text}</span>`;
+  capBox.appendChild(d);
+  return d;
+});
+const capBand = el("rect", { x: 40, y: 1450, width: 1000, height: 340, rx: 44, fill: "rgba(10,17,36,0.45)" });
+const progressBg = el("rect", { x: 70, y: 1846, width: 940, height: 6, rx: 3, fill: "rgba(255,255,255,0.12)" });
+const progress = el("rect", { x: 70, y: 1846, width: 0, height: 6, rx: 3, fill: C.pre });
+
+function renderCaptions(t) {
+  SCRIPT.forEach((c, i) => {
+    const a = smooth((t - c.start + 0.1) / 0.25);
+    const next = SCRIPT[i + 1];
+    const until = next ? Math.min(next.start - 0.1, c.end + 1.2 + (c.hold || 0)) : c.end + 2.5;
+    const b = 1 - smooth((t - until) / 0.2);
+    capEls[i].style.opacity = Math.min(a, b);
+  });
+  progress.setAttribute("width", 940 * clamp(t / window.DURATION));
+}
+
+// ---------------------------------------------------------------------------
+// Load every face before measuring text (unused faces aren't loaded otherwise).
+const FACES = ["900 40px Fraunces", "700 40px Fraunces", "italic 600 40px Fraunces", "600 40px Manrope", "700 40px Manrope", "800 40px Manrope"];
+window.ready = Promise.all(FACES.map((f) => document.fonts.load(f))).then(() => document.fonts.ready).then(() => {
+  BUILD_ALL();
+  window.render(0);
+});
+window.render = (t) => {
+  anims.forEach((f) => f(t));
+  renderCaptions(t);
+};
+window.SCRIPT_TIMING = () => SCRIPT.map((c) => ({ start: c.start, end: c.end, text: c.text.replace(/<[^>]+>/g, ""), scene: c.scene }));
+</script>
+</body>
+</html>

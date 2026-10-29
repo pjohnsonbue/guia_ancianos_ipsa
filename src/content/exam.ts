@@ -1,7 +1,7 @@
-import type { CategoryId, QuizQuestion } from "./types";
-import { QUIZ } from "./quiz";
+import type { CategoryId, Question } from "./types";
+import { QUESTIONS, QUESTIONS_BY_ID } from "./questions";
 import { CATEGORIES, categoryOfPack } from "./categories";
-import { PACKS_BY_ID } from "./packs";
+import { PACKS_BY_ID } from "./course";
 
 /** Number of questions in one Simulacro. */
 export const EXAM_LENGTH = 30;
@@ -10,7 +10,7 @@ export const EXAM_LENGTH = 30;
 export const PASS_PERCENT = 70;
 
 export interface ExamQuestion {
-  question: QuizQuestion;
+  question: Question;
   /** The four options in display order (correct one shuffled in). */
   options: string[];
   /** Index into `options` of the correct answer. */
@@ -35,7 +35,7 @@ export interface ExamResult {
   optionsById: Record<string, string[]>;
 }
 
-function shuffle<T>(items: T[], rand: () => number = Math.random): T[] {
+export function shuffle<T>(items: T[], rand: () => number = Math.random): T[] {
   const a = items.slice();
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
@@ -45,15 +45,15 @@ function shuffle<T>(items: T[], rand: () => number = Math.random): T[] {
 }
 
 /** Questions eligible for the exam: those whose pack is visible. */
-function eligibleQuestions(): QuizQuestion[] {
-  return QUIZ.filter((q) => PACKS_BY_ID[q.packId]?.visible);
+function eligibleQuestions(): Question[] {
+  return QUESTIONS.filter((q) => PACKS_BY_ID[q.packId]?.visible);
 }
 
 /**
  * Builds a fresh Simulacro of up to EXAM_LENGTH questions.
  *
  * Questions are drawn round-robin across the four categories, so every exam
- * covers the Guía, the Libro de orden, the Confesión and the Bible roughly
+ * covers the Guía, the Confesión, the Libro de orden and the Bible roughly
  * equally, no matter how many questions each category has. Within a category,
  * questions are also spread round-robin across its packs, so one large pack
  * can't dominate. The final list is shuffled, as are the options of each
@@ -63,9 +63,9 @@ export function buildExam(length: number = EXAM_LENGTH, rand: () => number = Mat
   const pool = eligibleQuestions();
 
   // category -> pack -> shuffled questions
-  const byCategory = new Map<CategoryId, QuizQuestion[]>();
+  const byCategory = new Map<CategoryId, Question[]>();
   for (const cat of CATEGORIES) {
-    const byPack = new Map<string, QuizQuestion[]>();
+    const byPack = new Map<string, Question[]>();
     for (const q of pool) {
       if (categoryOfPack(q.packId) !== cat.id) continue;
       if (!byPack.has(q.packId)) byPack.set(q.packId, []);
@@ -74,7 +74,7 @@ export function buildExam(length: number = EXAM_LENGTH, rand: () => number = Mat
     // Interleave packs (in random pack order) so a category's picks are
     // spread over its packs.
     const packQueues = shuffle([...byPack.values()].map((qs) => shuffle(qs, rand)), rand);
-    const interleaved: QuizQuestion[] = [];
+    const interleaved: Question[] = [];
     let added = true;
     while (added) {
       added = false;
@@ -89,7 +89,7 @@ export function buildExam(length: number = EXAM_LENGTH, rand: () => number = Mat
     if (interleaved.length) byCategory.set(cat.id, interleaved);
   }
 
-  const picked: QuizQuestion[] = [];
+  const picked: Question[] = [];
   const catOrder = shuffle([...byCategory.keys()], rand);
   while (picked.length < length) {
     let progressed = false;
@@ -104,10 +104,13 @@ export function buildExam(length: number = EXAM_LENGTH, rand: () => number = Mat
     if (!progressed) break;
   }
 
-  return shuffle(picked, rand).map((question) => {
-    const options = shuffle([question.correct, ...question.wrong], rand);
-    return { question, options, correctIndex: options.indexOf(question.correct) };
-  });
+  return shuffle(picked, rand).map((question) => withShuffledOptions(question, rand));
+}
+
+/** A question with its four options in a fresh random order. */
+export function withShuffledOptions(question: Question, rand: () => number = Math.random): ExamQuestion {
+  const options = shuffle([question.correct, ...question.wrong], rand);
+  return { question, options, correctIndex: options.indexOf(question.correct) };
 }
 
 export function percentOf(result: Pick<ExamResult, "correct" | "total">): number {
@@ -121,7 +124,7 @@ export interface CategoryScore {
 }
 
 /** Per-category tally of a finished exam, in Home order. */
-export function scoreByCategory(result: ExamResult, questionsById: Record<string, QuizQuestion>): CategoryScore[] {
+export function scoreByCategory(result: ExamResult, questionsById: Record<string, Question>): CategoryScore[] {
   const tally = new Map<CategoryId, CategoryScore>();
   for (const a of result.answers) {
     const q = questionsById[a.questionId];
@@ -135,4 +138,4 @@ export function scoreByCategory(result: ExamResult, questionsById: Record<string
   return CATEGORIES.map((c) => tally.get(c.id)).filter((t): t is CategoryScore => !!t);
 }
 
-export const QUIZ_BY_ID: Record<string, QuizQuestion> = Object.fromEntries(QUIZ.map((q) => [q.id, q]));
+export { QUESTIONS_BY_ID };

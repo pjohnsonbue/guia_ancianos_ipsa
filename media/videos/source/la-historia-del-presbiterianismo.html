@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<style>
+  @font-face { font-family: "Fraunces"; font-weight: 900; src: url("../../../node_modules/@expo-google-fonts/fraunces/900Black/Fraunces_900Black.ttf"); }
+  @font-face { font-family: "Fraunces"; font-weight: 700; src: url("../../../node_modules/@expo-google-fonts/fraunces/700Bold/Fraunces_700Bold.ttf"); }
+  @font-face { font-family: "Fraunces"; font-weight: 600; font-style: italic; src: url("../../../node_modules/@expo-google-fonts/fraunces/600SemiBold_Italic/Fraunces_600SemiBold_Italic.ttf"); }
+  @font-face { font-family: "Manrope"; font-weight: 600; src: url("../../../node_modules/@expo-google-fonts/manrope/600SemiBold/Manrope_600SemiBold.ttf"); }
+  @font-face { font-family: "Manrope"; font-weight: 700; src: url("../../../node_modules/@expo-google-fonts/manrope/700Bold/Manrope_700Bold.ttf"); }
+  @font-face { font-family: "Manrope"; font-weight: 800; src: url("../../../node_modules/@expo-google-fonts/manrope/800ExtraBold/Manrope_800ExtraBold.ttf"); }
+  html, body { margin: 0; padding: 0; width: 1080px; height: 1920px; overflow: hidden; background: #1A2B51; }
+  #stage { position: absolute; inset: 0; }
+  svg { position: absolute; inset: 0; }
+  #captions { position: absolute; left: 70px; right: 70px; top: 1470px; height: 300px; }
+  .cap {
+    position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    font-family: "Manrope"; font-weight: 700; font-size: 50px; line-height: 1.32; color: #FFFFFF;
+    opacity: 0;
+  }
+  .cap em { font-style: normal; color: #F2C66A; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <svg id="svg" width="1080" height="1920" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#24396D" />
+        <stop offset="1" stop-color="#131E3B" />
+      </linearGradient>
+      <radialGradient id="glow" cx="0.5" cy="0.35" r="0.6">
+        <stop offset="0" stop-color="#3A5596" stop-opacity="0.55" />
+        <stop offset="1" stop-color="#3A5596" stop-opacity="0" />
+      </radialGradient>
+      <marker id="arrowGold" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#E8B54A" />
+      </marker>
+      <marker id="arrowBlue" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#8DB8F2" />
+      </marker>
+      <marker id="arrowRose" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#E06B7D" />
+      </marker>
+    </defs>
+    <rect width="1080" height="1920" fill="url(#bg)" />
+    <rect width="1080" height="1920" fill="url(#glow)" />
+    <g id="root"></g>
+  </svg>
+  <div id="captions"></div>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Palette + helpers
+// ---------------------------------------------------------------------------
+const C = {
+  navy: "#1A2B51", cream: "#F8F5EF", white: "#FFFFFF", muted: "#AFC0DE",
+  epi: "#E06B7D", con: "#4CC38A", pre: "#E8B54A", blue: "#8DB8F2",
+};
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const smooth = (x) => { x = clamp(x); return x * x * (3 - 2 * x); };
+const easeOut = (x) => 1 - Math.pow(1 - clamp(x), 3);
+const NS = "http://www.w3.org/2000/svg";
+const root = document.getElementById("root");
+
+function el(tag, attrs = {}, parent = root) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  parent.appendChild(e);
+  return e;
+}
+function group(parent = root, attrs = {}) { return el("g", attrs, parent); }
+function text(parent, x, y, str, o = {}) {
+  const t = el("text", {
+    x, y, "text-anchor": o.anchor || "middle",
+    "font-family": o.family || "Manrope", "font-weight": o.weight || 700,
+    "font-size": o.size || 34, fill: o.color || C.white,
+    ...(o.italic ? { "font-style": "italic" } : {}),
+    ...(o.ls ? { "letter-spacing": o.ls } : {}),
+  }, parent);
+  t.textContent = str;
+  return t;
+}
+// Pill-shaped label, centred on (x, y).
+function chip(parent, x, y, str, o = {}) {
+  const g = group(parent);
+  const size = o.size || 32;
+  const t = text(g, x, y + size * 0.36, str, { size, weight: 800, color: o.textColor || C.navy });
+  const w = t.getComputedTextLength() + size * 1.4;
+  const h = size * 1.75;
+  const r = el("rect", { x: x - w / 2, y: y - h / 2, width: w, height: h, rx: h / 2,
+    fill: o.fill || C.cream, stroke: o.stroke || "none", "stroke-width": o.stroke ? 3 : 0 }, g);
+  g.insertBefore(r, t);
+  return g;
+}
+function person(parent, x, y, s, color) {
+  const g = group(parent);
+  el("circle", { cx: x, cy: y - s * 0.52, r: s * 0.3, fill: color }, g);
+  el("path", { d: `M ${x - s * 0.5} ${y + s * 0.55} V ${y + s * 0.12} a ${s * 0.5} ${s * 0.42} 0 0 1 ${s} 0 V ${y + s * 0.55} Z`, fill: color }, g);
+  return g;
+}
+function church(parent, x, y, s, color, door = C.navy) {
+  const g = group(parent);
+  // cross
+  el("rect", { x: x - s * 0.04, y: y - s * 0.98, width: s * 0.08, height: s * 0.34, fill: color }, g);
+  el("rect", { x: x - s * 0.13, y: y - s * 0.88, width: s * 0.26, height: s * 0.075, fill: color }, g);
+  // roof + body
+  el("path", { d: `M ${x - s * 0.62} ${y - s * 0.1} L ${x} ${y - s * 0.64} L ${x + s * 0.62} ${y - s * 0.1} Z`, fill: color }, g);
+  el("rect", { x: x - s * 0.48, y: y - s * 0.16, width: s * 0.96, height: s * 0.72, fill: color }, g);
+  el("path", { d: `M ${x - s * 0.13} ${y + s * 0.56} V ${y + s * 0.2} a ${s * 0.13} ${s * 0.13} 0 0 1 ${s * 0.26} 0 V ${y + s * 0.56} Z`, fill: door }, g);
+  return g;
+}
+function line(parent, x1, y1, x2, y2, color, o = {}) {
+  return el("path", {
+    d: `M ${x1} ${y1} L ${x2} ${y2}`, stroke: color, "stroke-width": o.width || 5,
+    "stroke-linecap": "round", fill: "none", pathLength: 1,
+    ...(o.marker ? { "marker-end": `url(#${o.marker})` } : {}),
+  }, parent);
+}
+function book(parent, x, y, w, h, color, label) {
+  const g = group(parent);
+  el("rect", { x: x - w / 2, y: y - h / 2, width: w, height: h, rx: 10, fill: color }, g);
+  el("rect", { x: x - w / 2, y: y - h / 2, width: w * 0.12, height: h, rx: 6, fill: "rgba(0,0,0,0.18)" }, g);
+  el("rect", { x: x - w * 0.28, y: y - h * 0.3, width: w * 0.66, height: 6, rx: 3, fill: "rgba(255,255,255,0.75)" }, g);
+  el("rect", { x: x - w * 0.28, y: y - h * 0.2, width: w * 0.5, height: 6, rx: 3, fill: "rgba(255,255,255,0.55)" }, g);
+  if (label) label.forEach((l, i) => text(g, x, y + h / 2 + 52 + i * 40, l, { size: 32, weight: 800 }));
+  return g;
+}
+function openBible(parent, x, y, s) {
+  const g = group(parent);
+  el("path", { d: `M ${x} ${y - s * 0.32} C ${x - s * 0.35} ${y - s * 0.45} ${x - s * 0.8} ${y - s * 0.42} ${x - s} ${y - s * 0.32} V ${y + s * 0.38} C ${x - s * 0.8} ${y + s * 0.28} ${x - s * 0.35} ${y + s * 0.3} ${x} ${y + s * 0.42} Z`, fill: C.cream }, g);
+  el("path", { d: `M ${x} ${y - s * 0.32} C ${x + s * 0.35} ${y - s * 0.45} ${x + s * 0.8} ${y - s * 0.42} ${x + s} ${y - s * 0.32} V ${y + s * 0.38} C ${x + s * 0.8} ${y + s * 0.28} ${x + s * 0.35} ${y + s * 0.3} ${x} ${y + s * 0.42} Z`, fill: "#EFE9DE" }, g);
+  el("rect", { x: x - s * 0.03, y: y - s * 0.34, width: s * 0.06, height: s * 0.78, fill: "#D9CFBC" }, g);
+  for (let i = 0; i < 4; i++) {
+    el("rect", { x: x - s * 0.82, y: y - s * 0.18 + i * s * 0.13, width: s * 0.6, height: 5, rx: 2.5, fill: "#B9AE98" }, g);
+    el("rect", { x: x + s * 0.22, y: y - s * 0.18 + i * s * 0.13, width: s * 0.6, height: 5, rx: 2.5, fill: "#B9AE98" }, g);
+  }
+  // cross above
+  el("rect", { x: x - 5, y: y - s * 0.95, width: 10, height: s * 0.42, fill: C.pre }, g);
+  el("rect", { x: x - s * 0.13, y: y - s * 0.85, width: s * 0.26, height: 10, fill: C.pre }, g);
+  return g;
+}
+// Mini icons used in the intro and the summary.
+function miniPyramid(parent, x, y, s) {
+  const g = group(parent);
+  el("path", { d: `M ${x} ${y - s} L ${x + s} ${y + s * 0.75} L ${x - s} ${y + s * 0.75} Z`, fill: "none", stroke: C.epi, "stroke-width": 6, "stroke-linejoin": "round" }, g);
+  person(g, x, y - s * 0.35, s * 0.32, C.epi);
+  [-0.5, 0, 0.5].forEach((dx) => person(g, x + dx * s, y + s * 0.42, s * 0.24, C.epi));
+  return g;
+}
+function miniIslands(parent, x, y, s) {
+  const g = group(parent);
+  [[-0.5, -0.45], [0.5, -0.45], [-0.5, 0.5], [0.5, 0.5]].forEach(([dx, dy]) => {
+    el("circle", { cx: x + dx * s, cy: y + dy * s, r: s * 0.38, fill: "none", stroke: C.con, "stroke-width": 5 }, g);
+    church(g, x + dx * s, y + dy * s + s * 0.08, s * 0.32, C.con);
+  });
+  return g;
+}
+function miniNetwork(parent, x, y, s) {
+  const g = group(parent);
+  el("rect", { x: x - s * 0.55, y: y - s * 0.95, width: s * 1.1, height: s * 0.45, rx: 12, fill: "none", stroke: C.pre, "stroke-width": 5 }, g);
+  [-0.7, 0, 0.7].forEach((dx) => {
+    line(g, x + dx * s, y + s * 0.3, x + dx * s * 0.45, y - s * 0.5, C.pre, { width: 4 });
+    church(g, x + dx * s, y + s * 0.62, s * 0.34, C.pre);
+  });
+  [-0.3, 0, 0.3].forEach((dx) => person(g, x + dx * s, y - s * 0.72, s * 0.17, C.pre));
+  return g;
+}
+
+// ---------------------------------------------------------------------------
+// Script: caption chunks (what the narrator says), grouped by scene.
+// Source: Guía de Formación de Liderazgo, «La historia de la iglesia»:
+// «1517 d.C. – Lutero recupera la justificación por la fe»; «Una visión general
+// de la Reforma Protestante» (las cinco Solas); «1536 d.C. – Calvino…»;
+// «1559 – Juan Knox vuelve a Escocia»; «1647 d.C. – Se termina la Confesión
+// de Fe de Westminster»; «1706 d.C. – El Presbiterianismo llega a América»;
+// «Breve reseña histórica del Presbiterianismo en América Latina».
+// ---------------------------------------------------------------------------
+const SCRIPT = [
+  { scene: "intro", text: "¿De dónde venimos los presbiterianos?", cue: "intro.q" },
+  { scene: "intro", text: "Somos presbiterianos en el gobierno y reformados en la fe. Esta es nuestra historia.", cue: "intro.two", hold: 0.4 },
+
+  { scene: "ref", text: "En 1517, el monje Martín Lutero publicó sus 95 tesis, en tiempos de la venta de indulgencias.", cue: "ref.1517" },
+  { scene: "ref", text: "Había redescubierto que el justo vive por la fe: un regalo de Dios, no un mérito propio.", cue: "ref.faith" },
+  { scene: "ref", text: "Fue la chispa de la Reforma, que buscaba volver a las raíces bíblicas.", cue: "ref.spark" },
+  { scene: "ref", text: "Sus convicciones se resumen en las cinco Solas: solo la fe, solo la gracia, solo la Escritura, solo Cristo y gloria solo a Dios.", cue: "ref.solas", hold: 0.4 },
+
+  { scene: "cal", text: "En 1536, Juan Calvino publicó la Institución de la religión cristiana.", cue: "cal.1536" },
+  { scene: "cal", text: "Desde Ginebra fue la figura principal del movimiento reformado, del que venimos los presbiterianos.", cue: "cal.geneva" },
+  { scene: "cal", text: "Ser reformados es ser reformados por la Palabra de Dios, y seguir siéndolo.", cue: "cal.reformed", hold: 0.4 },
+
+  { scene: "knox", text: "En 1559, Juan Knox volvió a Escocia.", cue: "knox.1559" },
+  { scene: "knox", text: "Había sido prisionero en una galera, y discípulo de Calvino en Ginebra.", cue: "knox.bio" },
+  { scene: "knox", text: "Llevó la fe reformada al mundo de habla inglesa.", cue: "knox.legacy", hold: 0.4 },
+
+  { scene: "wes", text: "En 1647, la Asamblea de Westminster terminó su Confesión de Fe y sus Catecismos Mayor y Menor,", cue: "wes.1647" },
+  { scene: "wes", text: "documentos que marcaron profundamente a los presbiterianos.", cue: "wes.impact", hold: 0.4 },
+
+  { scene: "ame", text: "En 1706, nueve pastores y cuatro laicos se reunieron en Filadelfia y formaron el primer presbiterio del Nuevo Mundo.", cue: "ame.1706" },
+  { scene: "ame", text: "Uno de ellos, Francis Makemie, es llamado el padre del presbiterianismo americano.", cue: "ame.makemie", hold: 0.4 },
+
+  { scene: "lat", text: "Los presbiterianos abrieron luego muchos campos misioneros en América Latina:", cue: "lat.title" },
+  { scene: "lat", text: "Argentina desde 1823, Colombia en 1856, Brasil en 1859,", cue: "lat.1" },
+  { scene: "lat", text: "y después México, Chile, Guatemala, Cuba, Puerto Rico y Venezuela,", cue: "lat.2" },
+  { scene: "lat", text: "casi siempre con un énfasis especial en la educación.", cue: "lat.edu", hold: 0.4 },
+
+  { scene: "end", text: "Y en 1829, en Buenos Aires, nació la iglesia que hoy es la Iglesia Presbiteriana San Andrés.", cue: "end.fade" },
+  { scene: "end", text: "Pero esa es otra historia.", cue: "end.next", hold: 1.0 },
+];
+
+// Timing: ~2.55 words per second (an unhurried narration pace), plus a short
+// breath between chunks and a longer pause at each scene change.
+const WPS = 2.55, GAP = 0.35, SCENE_GAP = 0.9, START = 0.8, TAIL = 4.0;
+const cues = {}, sceneStart = {}, sceneEnd = {};
+{
+  let t = START, prevScene = null;
+  for (const c of SCRIPT) {
+    if (prevScene && c.scene !== prevScene) { sceneEnd[prevScene] = t; t += SCENE_GAP; }
+    if (!(c.scene in sceneStart)) sceneStart[c.scene] = t - (prevScene ? SCENE_GAP * 0.6 : START);
+    const words = c.text.replace(/<[^>]+>/g, "").split(/\s+/).filter(Boolean).length;
+    c.start = t;
+    c.dur = Math.max(1.6, words / WPS);
+    c.end = t + c.dur;
+    if (c.cue) cues[c.cue] = t;
+    t = c.end + GAP + (c.hold || 0);
+    prevScene = c.scene;
+  }
+  sceneEnd[prevScene] = t + TAIL;
+  window.DURATION = t + TAIL;
+}
+const cue = (name, offset = 0) => cues[name] + offset;
+
+// ---------------------------------------------------------------------------
+// Animation registry
+// ---------------------------------------------------------------------------
+const anims = [];
+// Fade/slide an element in at `tin` and out at `tout`.
+function show(node, tin, tout = Infinity, o = {}) {
+  const dur = o.dur || 0.6, dy = o.dy ?? 26, sc = o.scale ?? 1, px = o.px ?? 540, py = o.py ?? 960;
+  anims.push((t) => {
+    const a = easeOut((t - tin) / dur);
+    const b = 1 - smooth((t - tout) / 0.45);
+    const op = Math.min(a, b) * (o.opacity ?? 1);
+    node.style.opacity = op;
+    if (op <= 0) { node.style.display = "none"; return; }
+    node.style.display = "";
+    const s = sc + (1 - sc) * a;
+    const extra = o.extra ? o.extra(t) : "";
+    node.setAttribute("transform", `${extra} translate(0 ${(1 - a) * dy}) translate(${px} ${py}) scale(${s}) translate(${-px} ${-py})`);
+  });
+  return node;
+}
+// Draw a path (pathLength=1) from tin over dur seconds.
+function draw(path, tin, dur = 0.7, tout = Infinity) {
+  path.setAttribute("stroke-dasharray", "1 1");
+  const marker = path.getAttribute("marker-end");
+  anims.push((t) => {
+    const p = easeOut((t - tin) / dur);
+    path.setAttribute("stroke-dashoffset", 1 - p);
+    // The arrowhead only appears once the line has reached it.
+    if (marker) { if (p > 0.92) path.setAttribute("marker-end", marker); else path.removeAttribute("marker-end"); }
+    path.style.opacity = (p > 0 ? 1 : 0) * (1 - smooth((t - tout) / 0.45));
+  });
+  return path;
+}
+// Dots that keep travelling along a segment, from tin until tout.
+function flow(parent, x1, y1, x2, y2, color, tin, tout, o = {}) {
+  const n = o.n || 2, period = o.period || 1.6, r = o.r || 9;
+  const dots = Array.from({ length: n }, () => el("circle", { r, fill: color }, parent));
+  anims.push((t) => {
+    const vis = smooth((t - tin) / 0.4) * (1 - smooth((t - tout) / 0.4));
+    dots.forEach((d, i) => {
+      const p = (((t - tin) / period + i / n) % 1 + 1) % 1;
+      d.setAttribute("cx", x1 + (x2 - x1) * p);
+      d.setAttribute("cy", y1 + (y2 - y1) * p);
+      d.style.opacity = vis * Math.sin(Math.PI * p);
+    });
+  });
+}
+// Re-colour an element's fills between two colours at time tin.
+function recolor(node, from, to, tin, dur = 0.5) {
+  const parse = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const A = parse(from), B = parse(to);
+  const shapes = node.querySelectorAll("circle, path, rect");
+  anims.push((t) => {
+    const p = smooth((t - tin) / dur);
+    const c = A.map((v, i) => Math.round(v + (B[i] - v) * p));
+    shapes.forEach((s) => s.setAttribute("fill", `rgb(${c.join(",")})`));
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Shared helpers for the history videos
+// ---------------------------------------------------------------------------
+function header(scene, eyebrow, title, color, size = 88) {
+  const g = group();
+  text(g, 540, 200, eyebrow, { size: 30, weight: 800, color: C.muted, ls: 4 });
+  text(g, 540, 300, title, { family: "Fraunces", weight: 900, size, color: C.white });
+  el("rect", { x: 440, y: 335, width: 200, height: 8, rx: 4, fill: color }, g);
+  show(g, sceneStart[scene] + 0.1, sceneEnd[scene] - 0.2, { dy: -20 });
+}
+// Big year + title for a moment in the story.
+function era(scene, cueName, year, title, color, o = {}) {
+  const end = o.until ?? (sceneEnd[scene] - 0.2);
+  const g = group();
+  text(g, 540, o.y ?? 470, year, { family: "Fraunces", weight: 900, size: o.yearSize ?? 150, color });
+  text(g, 540, (o.y ?? 470) + 90, title, { family: "Fraunces", weight: 900, size: o.titleSize ?? 62, color: C.white });
+  show(g, cue(cueName, o.off ?? 0), end, { dy: 30, scale: 0.9, py: (o.y ?? 470) - 40 });
+  return g;
+}
+function churchPin(parent, x, y, label, year, color = C.cream) {
+  const g = group(parent);
+  church(g, x, y, 80, color, C.navy);
+  text(g, x, y + 85, label, { size: 28, weight: 800, color: C.cream });
+  if (year) text(g, x, y + 122, year, { family: "Fraunces", weight: 900, size: 32, color: C.pre });
+  return g;
+}
+function ship(parent, x, y, s, color = C.cream) {
+  const g = group(parent);
+  el("path", { d: `M ${x - s} ${y} L ${x + s} ${y} L ${x + s * 0.75} ${y + s * 0.4} L ${x - s * 0.75} ${y + s * 0.4} Z`, fill: color }, g);
+  el("rect", { x: x - 4, y: y - s * 1.1, width: 8, height: s * 1.1, fill: color }, g);
+  el("path", { d: `M ${x + 8} ${y - s * 1.05} L ${x + s * 0.7} ${y - s * 0.2} L ${x + 8} ${y - s * 0.2} Z`, fill: color, opacity: 0.85 }, g);
+  el("path", { d: `M ${x - 8} ${y - s * 0.9} L ${x - s * 0.6} ${y - s * 0.2} L ${x - 8} ${y - s * 0.2} Z`, fill: color, opacity: 0.7 }, g);
+  for (let i = 0; i < 3; i++) el("path", { d: `M ${x - s * 1.2 + i * s * 0.8} ${y + s * 0.6} q ${s * 0.2} -${s * 0.15} ${s * 0.4} 0 t ${s * 0.4} 0`, stroke: C.blue, "stroke-width": 4, fill: "none" }, g);
+  return g;
+}
+function saltireFlag(parent, x, y, w, h) {
+  const g = group(parent);
+  el("rect", { x: x - w / 2, y: y - h / 2, width: w, height: h, rx: 8, fill: "#2F6FB8" }, g);
+  el("path", { d: `M ${x - w / 2 + 8} ${y - h / 2 + 8} L ${x + w / 2 - 8} ${y + h / 2 - 8} M ${x + w / 2 - 8} ${y - h / 2 + 8} L ${x - w / 2 + 8} ${y + h / 2 - 8}`, stroke: C.white, "stroke-width": h * 0.16, "stroke-linecap": "butt" }, g);
+  return g;
+}
+function cross(parent, x, y, s, color) {
+  const g = group(parent);
+  el("path", { d: `M ${x - s} ${y - s} L ${x + s} ${y + s} M ${x + s} ${y - s} L ${x - s} ${y + s}`, stroke: color, "stroke-width": s * 0.35, "stroke-linecap": "round" }, g);
+  return g;
+}
+// A running timeline just above the captions: one dot per moment.
+function runningTimeline(points) {
+  const g = group();
+  const x0 = 110, x1 = 970, y = 1405;
+  el("path", { d: `M ${x0} ${y} L ${x1} ${y}`, stroke: "rgba(175,192,222,0.35)", "stroke-width": 4 }, g);
+  const xs = points.map((_, i) => x0 + (x1 - x0) * (points.length === 1 ? 0.5 : i / (points.length - 1)));
+  const dots = points.map(([label, c], i) => {
+    const d = group(g);
+    const circle = el("circle", { cx: xs[i], cy: y, r: 10, fill: C.muted }, d);
+    const t = text(d, xs[i], y - 26, label, { size: 24, weight: 800, color: C.muted });
+    return { circle, t, at: cue(c) };
+  });
+  anims.push((t) => {
+    let active = -1;
+    dots.forEach((d, i) => { if (t >= d.at - 0.2) active = i; });
+    dots.forEach((d, i) => {
+      const on = i === active, past = i < active;
+      d.circle.setAttribute("r", on ? 16 : 10);
+      d.circle.setAttribute("fill", on ? C.pre : past ? C.cream : C.muted);
+      d.t.setAttribute("fill", on ? C.pre : past ? C.cream : C.muted);
+      d.t.setAttribute("font-size", on ? 30 : 24);
+    });
+  });
+  const first = Math.min(...dots.map((d) => d.at));
+  show(g, first - 0.6, cue("end.fade", 0), { dy: 0 });
+  return g;
+}
+// ---------------------------------------------------------------------------
+// Scene builders — «La historia del presbiterianismo»
+// ---------------------------------------------------------------------------
+function buildIntro() {
+  const S = "intro", end = sceneEnd[S] - 0.2;
+  const emb = el("image", { href: "../../../assets/source/emblem.png", x: 540 - 75, y: 300, width: 150, height: 169 }, group());
+  show(emb.parentNode, sceneStart[S], end, { dy: 0, scale: 0.9, py: 385 });
+  const t1 = group();
+  text(t1, 540, 650, "Nuestra historia", { family: "Fraunces", weight: 900, size: 100 });
+  text(t1, 540, 760, "presbiteriana", { family: "Fraunces", weight: 900, size: 100, color: C.pre });
+  show(t1, cue("intro.q", 0.2), end, { dy: 30 });
+  const c = group();
+  chip(c, 540, 930, "Presbiterianos en el gobierno", { size: 34, fill: C.pre });
+  chip(c, 540, 1030, "Reformados en la fe", { size: 34, fill: C.cream });
+  show(c, cue("intro.two", 0.4), end, { dy: 20 });
+}
+
+function buildReformation() {
+  const S = "ref", end = sceneEnd[S] - 0.2;
+  const yearsOut = cue("ref.solas");
+  era(S, "ref.1517", "1517", "Lutero", C.pre, { until: yearsOut });
+  const g = group();
+  // The door with the 95 theses.
+  const door = group(g);
+  el("rect", { x: 380, y: 640, width: 320, height: 520, rx: 150, ry: 150, fill: "#6B4A2E" }, door);
+  el("rect", { x: 380, y: 800, width: 320, height: 360, fill: "#6B4A2E" }, door);
+  el("rect", { x: 400, y: 820, width: 130, height: 320, rx: 10, fill: "#5A3D25" }, door);
+  el("rect", { x: 550, y: 820, width: 130, height: 320, rx: 10, fill: "#5A3D25" }, door);
+  show(door, cue("ref.1517", 0.5), yearsOut, { dy: 30 });
+  const paper = group(g);
+  el("rect", { x: 465, y: 720, width: 150, height: 200, rx: 6, fill: C.cream, transform: "rotate(-3 540 820)" }, paper);
+  for (let i = 0; i < 8; i++) el("rect", { x: 482, y: 748 + i * 20, width: 116 - (i % 3) * 18, height: 6, rx: 3, fill: "#B9AE98", transform: "rotate(-3 540 820)" }, paper);
+  text(paper, 540, 900, "95", { family: "Fraunces", weight: 900, size: 40, color: C.epi });
+  el("circle", { cx: 540, cy: 728, r: 7, fill: C.muted }, paper);
+  show(paper, cue("ref.1517", 1.4), yearsOut, { dy: -60 });
+  const faith = group(g);
+  chip(faith, 540, 1240, "«El justo vive por la fe»", { size: 32, fill: C.pre });
+  show(faith, cue("ref.faith", 1.0), yearsOut, { dy: 20 });
+  const spark = group(g);
+  chip(spark, 540, 1320, "La chispa de la Reforma", { size: 30, fill: C.cream });
+  show(spark, cue("ref.spark", 0.4), yearsOut, { dy: 20 });
+  // The five Solas.
+  const ttl = group(g);
+  text(ttl, 540, 400, "Las cinco Solas", { family: "Fraunces", weight: 900, size: 72 });
+  show(ttl, cue("ref.solas", 0.2), end, { dy: -20 });
+  [["Sola fide", "Solo por la fe"], ["Sola gratia", "Solo por gracia"], ["Sola Scriptura", "Solo la Escritura"], ["Solus Christus", "Solo Cristo"], ["Soli Deo gloria", "Gloria solo a Dios"]].forEach(([l, es], i) => {
+    const y = 520 + i * 160;
+    const r = group(g);
+    el("rect", { x: 110, y: y - 62, width: 860, height: 124, rx: 40, fill: "rgba(232,181,74,0.08)", stroke: C.pre, "stroke-width": 3 }, r);
+    text(r, 160, y - 2, l, { anchor: "start", family: "Fraunces", weight: 900, size: 46, color: C.pre, italic: false });
+    text(r, 160, y + 42, es, { anchor: "start", size: 30, weight: 700, color: C.cream });
+    show(r, cue("ref.solas", 1.6 + i * 1.3), end, { dy: 30 });
+  });
+}
+
+function buildCalvin() {
+  const S = "cal", end = sceneEnd[S] - 0.2;
+  era(S, "cal.1536", "1536", "Calvino", C.blue);
+  const g = group();
+  const b = group(g);
+  book(b, 540, 830, 230, 290, "#2F6FB8");
+  text(b, 540, 1030, "Institución de la", { size: 32, weight: 800 });
+  text(b, 540, 1072, "religión cristiana", { size: 32, weight: 800 });
+  show(b, cue("cal.1536", 1.0), end, { dy: 30, scale: 0.85, py: 830 });
+  const gen = group(g);
+  chip(gen, 540, 1160, "Ginebra", { size: 32, fill: "#CFE0F7" });
+  show(gen, cue("cal.geneva", 0.3), end, { dy: 20 });
+  const ref = group(g);
+  chip(ref, 540, 1250, "Reformados por la Palabra… y siempre reformándonos", { size: 28, fill: C.pre });
+  show(ref, cue("cal.reformed", 0.6), end, { dy: 20 });
+}
+
+function buildKnox() {
+  const S = "knox", end = sceneEnd[S] - 0.2;
+  era(S, "knox.1559", "1559", "Knox", C.cream);
+  const g = group();
+  const f = group(g);
+  saltireFlag(f, 540, 790, 330, 220);
+  text(f, 540, 950, "Escocia", { family: "Fraunces", weight: 900, size: 46, color: C.cream });
+  show(f, cue("knox.1559", 0.6), end, { dy: 30 });
+  [["Prisionero en una galera", "knox.bio", 0.2, 1040], ["Discípulo de Calvino en Ginebra", "knox.bio", 2.2, 1120], ["La fe reformada al mundo de habla inglesa", "knox.legacy", 0.3, 1210]].forEach(([w, c, off, y], i) => {
+    const k = group(g);
+    chip(k, 540, y, w, { size: 30, fill: i === 2 ? C.pre : C.cream });
+    show(k, cue(c, off), end, { dy: 20 });
+  });
+}
+
+function buildWestminster() {
+  const S = "wes", end = sceneEnd[S] - 0.2;
+  era(S, "wes.1647", "1647", "Westminster", "#8DB8F2");
+  const g = group();
+  [["Confesión", "de Fe", 270, "#2F6FB8"], ["Catecismo", "Mayor", 540, "#2A5F9E"], ["Catecismo", "Menor", 810, "#4C86C9"]].forEach(([l1, l2, x, col], i) => {
+    const b = group(g);
+    book(b, x, 820, 190, 250, col, [l1, l2]);
+    show(b, cue("wes.1647", 1.2 + i * 1.0), end, { dy: 40, scale: 0.85, px: x, py: 820 });
+  });
+  const imp = group(g);
+  chip(imp, 540, 1180, "120 ingleses · 12 escoceses", { size: 30, fill: C.cream });
+  show(imp, cue("wes.impact", 0.3), end, { dy: 20 });
+}
+
+function buildAmerica() {
+  const S = "ame", end = sceneEnd[S] - 0.2;
+  era(S, "ame.1706", "1706", "Filadelfia", C.con);
+  const g = group();
+  const box = group(g);
+  el("rect", { x: 110, y: 660, width: 860, height: 330, rx: 40, fill: "rgba(76,195,138,0.08)", stroke: C.con, "stroke-width": 5 }, box);
+  text(box, 540, 730, "Presbiterio de Filadelfia", { family: "Fraunces", weight: 900, size: 46, color: C.con });
+  show(box, cue("ame.1706", 0.6), end, { dy: 30 });
+  for (let i = 0; i < 13; i++) {
+    const p = group(g);
+    const x = 180 + i * 60;
+    person(p, x, 870, 52, i < 9 ? C.blue : C.pre);
+    show(p, cue("ame.1706", 1.5 + i * 0.18), end, { dy: 0, scale: 0.4, px: x, py: 870 });
+  }
+  const leg = group(g);
+  chip(leg, 330, 1060, "9 pastores", { size: 28, fill: "#CFE0F7" });
+  chip(leg, 760, 1060, "4 laicos", { size: 28, fill: C.pre });
+  show(leg, cue("ame.1706", 4.0), end);
+  const first = group(g);
+  chip(first, 540, 1150, "El primer presbiterio del Nuevo Mundo", { size: 30, fill: C.con });
+  show(first, cue("ame.1706", 5.2), end, { dy: 20 });
+  const mk = group(g);
+  person(mk, 230, 1260, 70, C.cream);
+  text(mk, 300, 1255, "Francis Makemie", { anchor: "start", family: "Fraunces", weight: 900, size: 40, color: C.cream });
+  text(mk, 300, 1295, "padre del presbiterianismo americano", { anchor: "start", size: 26, weight: 700, color: C.muted });
+  show(mk, cue("ame.makemie", 0.2), end, { dy: 20 });
+}
+
+function buildLatin() {
+  const S = "lat", end = sceneEnd[S] - 0.2;
+  header(S, "MISIÓN", "América Latina", C.epi);
+  const g = group();
+  const sh = group(g);
+  ship(sh, 540, 760, 130, C.cream);
+  text(sh, 540, 990, "Campos misioneros", { family: "Fraunces", weight: 900, size: 54, color: C.cream });
+  const t0 = cue("lat.title", 0.3);
+  show(sh, t0, cue("lat.1", -0.1), { dy: 0, extra: (t) => `translate(${-160 * (1 - easeOut((t - t0) / 2.5))} 0)` });
+  const rows = [
+    ["Argentina", "1823", "lat.1", 0.3], ["Colombia", "1856", "lat.1", 1.6], ["Brasil", "1859", "lat.1", 2.8],
+    ["México", "1871", "lat.2", 0.6], ["Chile", "1876", "lat.2", 1.2], ["Guatemala", "1882", "lat.2", 1.8],
+    ["Cuba", "1890", "lat.2", 2.4], ["Venezuela", "1897", "lat.2", 3.6], ["Puerto Rico", "1899", "lat.2", 3.0],
+  ];
+  rows.forEach(([country, year, c, off], i) => {
+    const col = i % 3, row = Math.floor(i / 3);
+    const x = 215 + col * 325, y = 500 + row * 190;
+    const k = group(g);
+    el("rect", { x: x - 145, y: y - 70, width: 290, height: 150, rx: 30, fill: "rgba(224,107,125,0.08)", stroke: C.epi, "stroke-width": 3 }, k);
+    text(k, x, y - 6, year, { family: "Fraunces", weight: 900, size: 52, color: C.pre });
+    text(k, x, y + 46, country, { size: 32, weight: 800, color: C.cream });
+    show(k, cue(c, off), end, { dy: 0, scale: 0.6, px: x, py: y });
+  });
+  const edu = group(g);
+  book(edu, 300, 1150, 110, 130, C.cream);
+  text(edu, 400, 1140, "Escuelas, colegios", { anchor: "start", family: "Fraunces", weight: 900, size: 44, color: C.cream });
+  text(edu, 400, 1190, "y seminarios", { anchor: "start", family: "Fraunces", weight: 900, size: 44, color: C.cream });
+  show(edu, cue("lat.edu", 0.4), end, { dy: 30 });
+}
+
+function buildEnd() {
+  const S = "end";
+  const g = group();
+  const y = group(g);
+  text(y, 540, 560, "1829", { family: "Fraunces", weight: 900, size: 170, color: C.pre });
+  text(y, 540, 650, "Buenos Aires", { family: "Fraunces", weight: 900, size: 60, color: C.white });
+  show(y, cue("end.fade", 0.2), Infinity, { dy: 30 });
+  const ch = group(g);
+  church(ch, 540, 860, 170, C.cream, C.navy);
+  show(ch, cue("end.fade", 1.2), Infinity, { dy: 30 });
+  const emb = el("image", { href: "../../../assets/source/emblem.png", x: 540 - 60, y: 1030, width: 120, height: 135 }, group(g));
+  show(emb.parentNode, cue("end.fade", 3.0), Infinity, { dy: 0, scale: 0.85, py: 1100 });
+  const t = group(g);
+  text(t, 540, 1240, "Continuará…", { family: "Fraunces", weight: 600, size: 52, color: C.pre, italic: true });
+  show(t, cue("end.next", 0.4), Infinity);
+}
+
+function BUILD_ALL() {
+  buildIntro(); buildReformation(); buildCalvin(); buildKnox(); buildWestminster(); buildAmerica(); buildLatin(); buildEnd();
+  runningTimeline([["1517", "ref.1517"], ["1536", "cal.1536"], ["1559", "knox.1559"], ["1647", "wes.1647"], ["1706", "ame.1706"], ["1823", "lat.1"], ["1829", "end.fade"]]);
+}
+
+// ---------------------------------------------------------------------------
+// Captions + progress bar
+// ---------------------------------------------------------------------------
+const capBox = document.getElementById("captions");
+const capEls = SCRIPT.map((c) => {
+  const d = document.createElement("div");
+  d.className = "cap";
+  d.innerHTML = `<span>${c.text}</span>`;
+  capBox.appendChild(d);
+  return d;
+});
+const capBand = el("rect", { x: 40, y: 1450, width: 1000, height: 340, rx: 44, fill: "rgba(10,17,36,0.45)" });
+const progressBg = el("rect", { x: 70, y: 1846, width: 940, height: 6, rx: 3, fill: "rgba(255,255,255,0.12)" });
+const progress = el("rect", { x: 70, y: 1846, width: 0, height: 6, rx: 3, fill: C.pre });
+
+function renderCaptions(t) {
+  SCRIPT.forEach((c, i) => {
+    const a = smooth((t - c.start + 0.1) / 0.25);
+    const next = SCRIPT[i + 1];
+    const until = next ? Math.min(next.start - 0.1, c.end + 1.2 + (c.hold || 0)) : c.end + 2.5;
+    const b = 1 - smooth((t - until) / 0.2);
+    capEls[i].style.opacity = Math.min(a, b);
+  });
+  progress.setAttribute("width", 940 * clamp(t / window.DURATION));
+}
+
+// ---------------------------------------------------------------------------
+// Load every face before measuring text (unused faces aren't loaded otherwise).
+const FACES = ["900 40px Fraunces", "700 40px Fraunces", "italic 600 40px Fraunces", "600 40px Manrope", "700 40px Manrope", "800 40px Manrope"];
+window.ready = Promise.all(FACES.map((f) => document.fonts.load(f))).then(() => document.fonts.ready).then(() => {
+  BUILD_ALL();
+  window.render(0);
+});
+window.render = (t) => {
+  anims.forEach((f) => f(t));
+  renderCaptions(t);
+};
+window.SCRIPT_TIMING = () => SCRIPT.map((c) => ({ start: c.start, end: c.end, text: c.text.replace(/<[^>]+>/g, ""), scene: c.scene }));
+</script>
+</body>
+</html>

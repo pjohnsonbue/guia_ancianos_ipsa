@@ -1,12 +1,13 @@
 import React, { useMemo } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, Image } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useIsFocused } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../navigation/types";
-import type { Pack } from "../content/types";
-import { getHomeSections, getReviewCards, REVIEW_PACK_ID } from "../content/categories";
+import type { Pack, Video } from "../content/types";
+import { COURSE, PACKS_BY_ID } from "../content/course";
+import { getVideosForReading } from "../content/videos";
+import { getReviewQuestions, readingProgressKey, REVIEW_PACK_ID } from "../content/categories";
 import { EXAM_LENGTH, percentOf } from "../content/exam";
 import { useT, type TFunction } from "../lib/i18n";
 import { useAppState } from "../state/AppState";
@@ -18,7 +19,49 @@ import { DashBand } from "../components/decor/DashBand";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
-// Memoised so a change to one pack's progress doesn't re-render every card.
+// «Lectura»: light and outlined, so reading reads differently from the
+// gradient question packs. Tracks chapters read.
+const ReadingCard = React.memo(function ReadingCard({
+  pack,
+  readCount,
+  t,
+  navigation,
+}: {
+  pack: Pack;
+  readCount: number;
+  t: TFunction;
+  navigation: Props["navigation"];
+}) {
+  const reading = pack.reading!;
+  const total = reading.chapterIds.length;
+  const n = Math.min(readCount, total);
+  return (
+    <Pressable
+      onPress={() => navigation.navigate("Reading", { packId: pack.id })}
+      style={({ pressed }) => [styles.readingCard, pressed && { opacity: 0.92 }]}
+      accessibilityRole="button"
+    >
+      <View style={styles.readingIcon}>
+        <Icon name="book" size={20} color={theme.colors.accent} strokeWidth={2.2} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.readingTitle}>
+          {t("home.readingPrefix")} {reading.title}
+        </Text>
+        {reading.subtitle ? <Text style={styles.readingSubtitle}>{reading.subtitle}</Text> : null}
+        <Text style={styles.readingMeta}>
+          {t(readingProgressKey(reading.docId, total), { n, total })}
+        </Text>
+        <View style={styles.readingTrack}>
+          <View style={[styles.readingFill, { width: `${Math.round((n / total) * 100)}%` }]} />
+        </View>
+      </View>
+      <Icon name="chevronRight" size={18} color={theme.colors.textMuted} strokeWidth={2.2} />
+    </Pressable>
+  );
+});
+
+// «Preguntas de repaso» (or a Biblia pack): gradient card with answer progress.
 const PackCard = React.memo(function PackCard({
   pack,
   correctCount,
@@ -30,32 +73,26 @@ const PackCard = React.memo(function PackCard({
   t: TFunction;
   navigation: Props["navigation"];
 }) {
-  const cardCount = pack.cardIds.length;
+  const total = pack.questionIds.length;
   return (
     <Pressable
-      onPress={() => navigation.navigate("Study", { packId: pack.id })}
+      onPress={() => navigation.navigate("Practice", { packId: pack.id })}
       style={({ pressed }) => [styles.packCardShadow, pressed && { opacity: 0.92 }]}
       accessibilityRole="button"
     >
       <LinearGradient colors={packGradient(pack.color)} start={{ x: 0.05, y: 0 }} end={{ x: 1, y: 1 }} style={styles.packCard}>
         <View style={styles.packTitleRow}>
           <Text style={styles.packIconInline}>{PACK_ICONS[pack.id] ?? "📘"}</Text>
-          <Text style={styles.packTitle}>{pack.title}</Text>
+          <Text style={styles.packTitle}>{pack.reading ? `${t("home.questionsPrefix")} ${pack.title}` : pack.title}</Text>
         </View>
         {pack.description ? <Text style={styles.packDescription}>{pack.description}</Text> : null}
         <View style={styles.packFooter}>
-          <Text style={styles.packMeta}>
-            {cardCount} {t("home.cardsSuffix")}
-          </Text>
-          {correctCount > 0 && (
-            <Text style={styles.packMeta}>
-              {correctCount}/{cardCount} {t("home.correctSuffix")}
-            </Text>
-          )}
+          <Text style={styles.packMeta}>{t("home.questionsCount", { n: total })}</Text>
+          {correctCount > 0 && <Text style={styles.packMeta}>{t("home.questionsCorrect", { n: correctCount, total })}</Text>}
         </View>
         {correctCount > 0 && (
           <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${Math.round((correctCount / cardCount) * 100)}%` }]} />
+            <View style={[styles.progressFill, { width: `${Math.round((correctCount / total) * 100)}%` }]} />
           </View>
         )}
       </LinearGradient>
@@ -63,20 +100,69 @@ const PackCard = React.memo(function PackCard({
   );
 });
 
-export default function HomeScreen({ navigation }: Props) {
-  const { cardAnswers, hasSeen, examHistory } = useAppState();
-  const t = useT();
-  // hasSeen() reads a ref (see AppState), so the review count is recomputed
-  // whenever Home regains focus — i.e. on the way back from studying.
-  const isFocused = useIsFocused();
+function formatDuration(seconds: number): string {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
 
-  const sections = useMemo(() => getHomeSections(), []);
-  const reviewCount = useMemo(
-    () => getReviewCards({ hasSeen, isKnown: (id) => cardAnswers[id] === "correct" }).length,
-    // isFocused is a deliberate dependency: it's what refreshes hasSeen().
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hasSeen, cardAnswers, isFocused]
+// A video sits between a reading and its questions: outlined in the pack's
+// colour so it reads as part of the topic, but light so it doesn't look like
+// a question pack.
+const VideoCard = React.memo(function VideoCard({
+  video,
+  color,
+  watched,
+  t,
+  navigation,
+}: {
+  video: Video;
+  color: string;
+  watched: boolean;
+  t: TFunction;
+  navigation: Props["navigation"];
+}) {
+  const prefix = t(video.position === "after" ? "home.videoPrefix" : "home.videoIntroPrefix");
+  return (
+    <Pressable
+      onPress={() => navigation.navigate("Video", { videoId: video.id })}
+      style={({ pressed }) => [styles.videoCard, { borderColor: color }, pressed && { opacity: 0.92 }]}
+      accessibilityRole="button"
+      accessibilityLabel={`${prefix} ${video.title}`}
+    >
+      <View style={styles.videoThumbWrap}>
+        <Image source={video.poster} style={styles.videoThumb} />
+        <View style={styles.videoPlay}>
+          <Icon name="play" size={16} color="#FFFFFF" />
+        </View>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.videoTitle}>
+          <Text style={{ color }}>{prefix} </Text>
+          {video.title}
+        </Text>
+        <Text style={styles.videoMeta}>
+          {t("home.videoLength", { n: formatDuration(video.duration) })}
+          {watched ? <Text style={styles.videoWatched}>{"  ·  ✓ "}{t("home.videoWatched")}</Text> : null}
+        </Text>
+      </View>
+      <Icon name="chevronRight" size={18} color={theme.colors.textMuted} strokeWidth={2.2} />
+    </Pressable>
   );
+});
+
+export default function HomeScreen({ navigation }: Props) {
+  const { questionAnswers, examHistory, watchedVideoIds, readChaptersByDoc } = useAppState();
+  const t = useT();
+
+  const reviewCount = useMemo(() => getReviewQuestions((id) => questionAnswers[id] === "wrong").length, [questionAnswers]);
+  const readSets = useMemo(
+    () => Object.fromEntries(Object.entries(readChaptersByDoc).map(([doc, ids]) => [doc, new Set(ids)])),
+    [readChaptersByDoc]
+  );
+  const correctIn = (pack: Pack) => pack.questionIds.filter((id) => questionAnswers[id] === "correct").length;
+  const readIn = (pack: Pack) => {
+    const set = pack.reading ? readSets[pack.reading.docId] : undefined;
+    return set ? pack.reading!.chapterIds.filter((id) => set.has(id)).length : 0;
+  };
 
   const lastExam = examHistory[0];
   const bestPercent = examHistory.length ? Math.max(...examHistory.map((r) => percentOf(r))) : null;
@@ -105,11 +191,9 @@ export default function HomeScreen({ navigation }: Props) {
 
         <DashBand dashes={14} style={{ marginTop: theme.spacing(2) }} />
 
-        <Text style={styles.subtitle}>{t("app.subtitle")}</Text>
-
         {reviewCount > 0 && (
           <Pressable
-            onPress={() => navigation.navigate("Study", { packId: REVIEW_PACK_ID })}
+            onPress={() => navigation.navigate("Practice", { packId: REVIEW_PACK_ID })}
             style={({ pressed }) => [styles.reviewCard, pressed && { opacity: 0.92 }]}
             accessibilityRole="button"
           >
@@ -118,30 +202,62 @@ export default function HomeScreen({ navigation }: Props) {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.reviewTitle}>{t("home.reviewTitle")}</Text>
-              <Text style={styles.reviewSubtitle}>{t("home.reviewSubtitle", { n: reviewCount })}</Text>
+              <Text style={styles.reviewSubtitle}>{reviewCount === 1 ? t("home.reviewSubtitleOne") : t("home.reviewSubtitle", { n: reviewCount })}</Text>
             </View>
             <Icon name="chevronRight" size={18} color={theme.colors.textMuted} strokeWidth={2.2} />
           </Pressable>
         )}
 
-        {sections.map((section) => (
-          <View key={section.category.id} style={styles.section}>
-            <Text style={styles.sectionTitle}>{section.category.title}</Text>
-            <Text style={styles.sectionSubtitle}>{section.category.subtitle}</Text>
-            <View style={{ height: theme.spacing(1.5) }} />
-            {section.packs.map((pack) => (
-              <PackCard
-                key={pack.id}
-                pack={pack}
-                correctCount={pack.cardIds.filter((id) => cardAnswers[id] === "correct").length}
+        {COURSE.map((section) => {
+          const renderVideos = (packId: string, position: Video["position"]) =>
+            getVideosForReading(packId, position).map((video) => (
+              <VideoCard
+                key={video.id}
+                video={video}
+                color={PACKS_BY_ID[packId].color}
+                watched={!!watchedVideoIds[video.id]}
                 t={t}
                 navigation={navigation}
               />
-            ))}
-          </View>
-        ))}
+            ));
+          // «section» videos introduce the whole document: right under its
+          // heading, above the first sub-heading, with a gap after them. In a
+          // section with sub-headings they get their own «Introducción» one.
+          const sectionIntro = section.groups.flatMap((g) => g.packIds).flatMap((id) => renderVideos(id, "section"));
+          const hasSubheadings = section.groups.some((g) => g.title);
+          return (
+            <View key={section.title} style={styles.section}>
+              <Text style={styles.sectionTitle}>{section.title}</Text>
+              {sectionIntro.length > 0 && (
+                <View style={styles.sectionIntro}>
+                  {hasSubheadings && <Text style={[styles.groupTitle, styles.introHeading]}>{t("home.introHeading")}</Text>}
+                  {sectionIntro}
+                </View>
+              )}
+              {section.groups.map((group, gi) => (
+                <View key={group.title ?? gi}>
+                  {group.title ? <Text style={styles.groupTitle}>{group.title}</Text> : null}
+                  <View style={{ height: theme.spacing(1.5) }} />
+                  {group.packIds.map((id) => {
+                    const pack = PACKS_BY_ID[id];
+                    return (
+                      <View key={id} style={pack.reading ? styles.unit : undefined}>
+                        {renderVideos(id, "before")}
+                        {pack.reading && <ReadingCard pack={pack} readCount={readIn(pack)} t={t} navigation={navigation} />}
+                        {renderVideos(id, "after")}
+                        <PackCard pack={pack} correctCount={correctIn(pack)} t={t} navigation={navigation} />
+                      </View>
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
+          );
+        })}
 
-        {/* Simulacro: the 30-question practice exam, after all the study packs. */}
+        <DashBand dashes={14} style={{ marginTop: theme.spacing(2) }} />
+
+        {/* Simulacro: 30 multiple-choice questions from the whole course. */}
         <Pressable
           onPress={() => navigation.navigate("Exam")}
           style={({ pressed }) => [styles.examShadow, pressed && { opacity: 0.94 }]}
@@ -200,15 +316,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  subtitle: {
-    marginTop: theme.spacing(2),
-    fontFamily: theme.font.body.fontFamily,
-    fontSize: 15,
-    lineHeight: 21,
-    color: theme.colors.textMuted,
-  },
   examShadow: {
-    marginTop: theme.spacing(4),
+    marginTop: theme.spacing(3),
     borderRadius: theme.radius.lg,
     shadowColor: palette.azulDeep,
     shadowOpacity: 0.25,
@@ -247,7 +356,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing(1.5),
-    marginTop: theme.spacing(2),
+    // Same gap above as the section heading below it has.
+    marginTop: theme.spacing(4),
     padding: theme.spacing(2),
     borderRadius: theme.radius.md,
     backgroundColor: theme.colors.surface,
@@ -264,9 +374,53 @@ const styles = StyleSheet.create({
   },
   reviewTitle: { fontFamily: theme.font.heading.fontFamily, fontSize: 17, color: theme.colors.text },
   reviewSubtitle: { marginTop: 2, fontFamily: fontFamily.body, fontSize: 13, color: theme.colors.textMuted },
-  section: { marginTop: theme.spacing(3.5) },
-  sectionTitle: { fontFamily: theme.font.heading.fontFamily, fontSize: 22, color: theme.colors.text },
-  sectionSubtitle: { marginTop: 4, fontFamily: fontFamily.body, fontSize: 13, lineHeight: 18, color: theme.colors.textMuted },
+  readingCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing(1.5),
+    marginBottom: theme.spacing(1),
+    padding: theme.spacing(2),
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1.5,
+    borderColor: theme.colors.accent,
+  },
+  readingIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.accentTint,
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "flex-start",
+  },
+  readingTitle: { fontFamily: theme.font.heading.fontFamily, fontSize: 17, lineHeight: 22, color: theme.colors.text },
+  readingSubtitle: { marginTop: 3, fontFamily: fontFamily.body, fontSize: 13, lineHeight: 18, color: theme.colors.textMuted },
+  readingMeta: {
+    marginTop: theme.spacing(1),
+    fontFamily: theme.font.label.fontFamily,
+    fontSize: 11,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    color: theme.colors.accent,
+  },
+  readingTrack: { marginTop: 6, height: 4, borderRadius: 2, backgroundColor: theme.colors.accentTint, overflow: "hidden" },
+  readingFill: { height: 4, borderRadius: 2, backgroundColor: theme.colors.accent },
+  section: { marginTop: theme.spacing(4) },
+  sectionTitle: { fontFamily: theme.font.title.fontFamily, fontSize: 25, lineHeight: 30, color: theme.colors.text },
+  groupTitle: {
+    marginTop: theme.spacing(2.5),
+    fontFamily: theme.font.label.fontFamily,
+    fontSize: 13,
+    letterSpacing: 0.9,
+    textTransform: "uppercase",
+    color: theme.colors.accentWarm,
+  },
+  sectionIntro: { marginTop: theme.spacing(1.5), marginBottom: theme.spacing(1.5) },
+  // The «Introducción» sub-heading sits right under the section title.
+  introHeading: { marginTop: theme.spacing(1), marginBottom: theme.spacing(1.5) },
+  // A reading with its videos and questions, spaced apart from the next one.
+  unit: { marginBottom: theme.spacing(1.5) },
   packCardShadow: {
     borderRadius: theme.radius.lg,
     marginBottom: theme.spacing(1.75),
@@ -297,6 +451,41 @@ const styles = StyleSheet.create({
   },
   progressTrack: { marginTop: theme.spacing(1), height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.25)", overflow: "hidden" },
   progressFill: { height: 4, borderRadius: 2, backgroundColor: "#FFFFFF" },
+  videoCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing(1.5),
+    marginBottom: theme.spacing(1),
+    padding: theme.spacing(1.25),
+    paddingRight: theme.spacing(1.75),
+    borderRadius: theme.radius.lg,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1.5,
+  },
+  videoThumbWrap: { width: 64, height: 64, borderRadius: theme.radius.md, overflow: "hidden", backgroundColor: palette.azulDeep },
+  videoThumb: { width: 64, height: 64 },
+  videoPlay: {
+    position: "absolute",
+    left: 18,
+    top: 18,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingLeft: 2,
+  },
+  videoTitle: { fontFamily: theme.font.heading.fontFamily, fontSize: 16, lineHeight: 21, color: theme.colors.text },
+  videoMeta: {
+    marginTop: 4,
+    fontFamily: theme.font.label.fontFamily,
+    fontSize: 11,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    color: theme.colors.textMuted,
+  },
+  videoWatched: { color: palette.verde },
   footer: {
     marginTop: theme.spacing(2),
     textAlign: "center",

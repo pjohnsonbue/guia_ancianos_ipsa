@@ -4,8 +4,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../navigation/types";
 import { useAppState } from "../state/AppState";
-import { ALL_CARDS, PACKS } from "../content/packs";
-import { QUIZ } from "../content/quiz";
+import { QUESTIONS } from "../content/questions";
+import { VIDEOS } from "../content/videos";
+import { getVisiblePacks } from "../content/categories";
 import { useT } from "../lib/i18n";
 import { theme, fontFamily } from "../theme/theme";
 import { Icon } from "../components/icons/Icon";
@@ -34,9 +35,10 @@ function confirmDestructive(title: string, message: string, cancel: string, conf
 }
 
 export default function SettingsScreen({ navigation }: Props) {
-  const { resetProgress, clearExamHistory, cardAnswers, examHistory } = useAppState();
+  const { resetProgress, clearExamHistory, questionAnswers, examHistory } = useAppState();
   const t = useT();
-  const knownCount = Object.keys(cardAnswers).length;
+  const correctCount = Object.values(questionAnswers).filter((a) => a === "correct").length;
+  const readingCount = getVisiblePacks().filter((p) => p.reading).length;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -57,9 +59,9 @@ export default function SettingsScreen({ navigation }: Props) {
         <Text style={styles.sectionLabel}>{t("settings.progressSection")}</Text>
         <View style={styles.section}>
           <View style={styles.row}>
-            <Text style={styles.rowText}>{t("settings.knownCards")}</Text>
+            <Text style={styles.rowText}>{t("settings.correctQuestions")}</Text>
             <Text style={styles.rowValue}>
-              {knownCount} / {ALL_CARDS.length}
+              {correctCount} / {QUESTIONS.length}
             </Text>
           </View>
           <View style={styles.row}>
@@ -99,7 +101,7 @@ export default function SettingsScreen({ navigation }: Props) {
         <Text style={styles.sectionLabel}>{t("settings.contentSection")}</Text>
         <View style={styles.section}>
           <View style={[styles.row, styles.rowLast, { flexDirection: "column", alignItems: "stretch" }]}>
-            <Text style={styles.rowText}>{t("settings.contentSummary", { packs: PACKS.length, cards: ALL_CARDS.length, quiz: QUIZ.length })}</Text>
+            <Text style={styles.rowText}>{t("settings.contentSummary", { readings: readingCount, questions: QUESTIONS.length, videos: VIDEOS.length })}</Text>
             <Text style={styles.rowSub}>{t("settings.sources")}</Text>
           </View>
         </View>

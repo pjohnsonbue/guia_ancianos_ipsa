@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="es">
+<!-- «La constitución de la iglesia» — same engine as gobierno-de-la-iglesia.html -->
+<head>
+<meta charset="utf-8" />
+<style>
+  @font-face { font-family: "Fraunces"; font-weight: 900; src: url("../../../node_modules/@expo-google-fonts/fraunces/900Black/Fraunces_900Black.ttf"); }
+  @font-face { font-family: "Fraunces"; font-weight: 700; src: url("../../../node_modules/@expo-google-fonts/fraunces/700Bold/Fraunces_700Bold.ttf"); }
+  @font-face { font-family: "Fraunces"; font-weight: 600; font-style: italic; src: url("../../../node_modules/@expo-google-fonts/fraunces/600SemiBold_Italic/Fraunces_600SemiBold_Italic.ttf"); }
+  @font-face { font-family: "Manrope"; font-weight: 600; src: url("../../../node_modules/@expo-google-fonts/manrope/600SemiBold/Manrope_600SemiBold.ttf"); }
+  @font-face { font-family: "Manrope"; font-weight: 700; src: url("../../../node_modules/@expo-google-fonts/manrope/700Bold/Manrope_700Bold.ttf"); }
+  @font-face { font-family: "Manrope"; font-weight: 800; src: url("../../../node_modules/@expo-google-fonts/manrope/800ExtraBold/Manrope_800ExtraBold.ttf"); }
+  html, body { margin: 0; padding: 0; width: 1080px; height: 1920px; overflow: hidden; background: #1A2B51; }
+  #stage { position: absolute; inset: 0; }
+  svg { position: absolute; inset: 0; }
+  #captions { position: absolute; left: 70px; right: 70px; top: 1470px; height: 300px; }
+  .cap {
+    position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    font-family: "Manrope"; font-weight: 700; font-size: 50px; line-height: 1.32; color: #FFFFFF;
+    opacity: 0;
+  }
+  .cap em { font-style: normal; color: #F2C66A; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <svg id="svg" width="1080" height="1920" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#24396D" />
+        <stop offset="1" stop-color="#131E3B" />
+      </linearGradient>
+      <radialGradient id="glow" cx="0.5" cy="0.35" r="0.6">
+        <stop offset="0" stop-color="#3A5596" stop-opacity="0.55" />
+        <stop offset="1" stop-color="#3A5596" stop-opacity="0" />
+      </radialGradient>
+      <marker id="arrowGold" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#E8B54A" />
+      </marker>
+      <marker id="arrowBlue" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#8DB8F2" />
+      </marker>
+      <marker id="arrowRose" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#E06B7D" />
+      </marker>
+    </defs>
+    <rect width="1080" height="1920" fill="url(#bg)" />
+    <rect width="1080" height="1920" fill="url(#glow)" />
+    <g id="root"></g>
+  </svg>
+  <div id="captions"></div>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Palette + helpers
+// ---------------------------------------------------------------------------
+const C = {
+  navy: "#1A2B51", cream: "#F8F5EF", white: "#FFFFFF", muted: "#AFC0DE",
+  epi: "#E06B7D", con: "#4CC38A", pre: "#E8B54A", blue: "#8DB8F2",
+};
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const smooth = (x) => { x = clamp(x); return x * x * (3 - 2 * x); };
+const easeOut = (x) => 1 - Math.pow(1 - clamp(x), 3);
+const NS = "http://www.w3.org/2000/svg";
+const root = document.getElementById("root");
+
+function el(tag, attrs = {}, parent = root) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  parent.appendChild(e);
+  return e;
+}
+function group(parent = root, attrs = {}) { return el("g", attrs, parent); }
+function text(parent, x, y, str, o = {}) {
+  const t = el("text", {
+    x, y, "text-anchor": o.anchor || "middle",
+    "font-family": o.family || "Manrope", "font-weight": o.weight || 700,
+    "font-size": o.size || 34, fill: o.color || C.white,
+    ...(o.italic ? { "font-style": "italic" } : {}),
+    ...(o.ls ? { "letter-spacing": o.ls } : {}),
+  }, parent);
+  t.textContent = str;
+  return t;
+}
+// Pill-shaped label, centred on (x, y).
+function chip(parent, x, y, str, o = {}) {
+  const g = group(parent);
+  const size = o.size || 32;
+  const t = text(g, x, y + size * 0.36, str, { size, weight: 800, color: o.textColor || C.navy });
+  const w = t.getComputedTextLength() + size * 1.4;
+  const h = size * 1.75;
+  const r = el("rect", { x: x - w / 2, y: y - h / 2, width: w, height: h, rx: h / 2,
+    fill: o.fill || C.cream, stroke: o.stroke || "none", "stroke-width": o.stroke ? 3 : 0 }, g);
+  g.insertBefore(r, t);
+  return g;
+}
+function person(parent, x, y, s, color) {
+  const g = group(parent);
+  el("circle", { cx: x, cy: y - s * 0.52, r: s * 0.3, fill: color }, g);
+  el("path", { d: `M ${x - s * 0.5} ${y + s * 0.55} V ${y + s * 0.12} a ${s * 0.5} ${s * 0.42} 0 0 1 ${s} 0 V ${y + s * 0.55} Z`, fill: color }, g);
+  return g;
+}
+function church(parent, x, y, s, color, door = C.navy) {
+  const g = group(parent);
+  // cross
+  el("rect", { x: x - s * 0.04, y: y - s * 0.98, width: s * 0.08, height: s * 0.34, fill: color }, g);
+  el("rect", { x: x - s * 0.13, y: y - s * 0.88, width: s * 0.26, height: s * 0.075, fill: color }, g);
+  // roof + body
+  el("path", { d: `M ${x - s * 0.62} ${y - s * 0.1} L ${x} ${y - s * 0.64} L ${x + s * 0.62} ${y - s * 0.1} Z`, fill: color }, g);
+  el("rect", { x: x - s * 0.48, y: y - s * 0.16, width: s * 0.96, height: s * 0.72, fill: color }, g);
+  el("path", { d: `M ${x - s * 0.13} ${y + s * 0.56} V ${y + s * 0.2} a ${s * 0.13} ${s * 0.13} 0 0 1 ${s * 0.26} 0 V ${y + s * 0.56} Z`, fill: door }, g);
+  return g;
+}
+function line(parent, x1, y1, x2, y2, color, o = {}) {
+  return el("path", {
+    d: `M ${x1} ${y1} L ${x2} ${y2}`, stroke: color, "stroke-width": o.width || 5,
+    "stroke-linecap": "round", fill: "none", pathLength: 1,
+    ...(o.marker ? { "marker-end": `url(#${o.marker})` } : {}),
+  }, parent);
+}
+function book(parent, x, y, w, h, color, label) {
+  const g = group(parent);
+  el("rect", { x: x - w / 2, y: y - h / 2, width: w, height: h, rx: 10, fill: color }, g);
+  el("rect", { x: x - w / 2, y: y - h / 2, width: w * 0.12, height: h, rx: 6, fill: "rgba(0,0,0,0.18)" }, g);
+  el("rect", { x: x - w * 0.28, y: y - h * 0.3, width: w * 0.66, height: 6, rx: 3, fill: "rgba(255,255,255,0.75)" }, g);
+  el("rect", { x: x - w * 0.28, y: y - h * 0.2, width: w * 0.5, height: 6, rx: 3, fill: "rgba(255,255,255,0.55)" }, g);
+  if (label) label.forEach((l, i) => text(g, x, y + h / 2 + 52 + i * 40, l, { size: 32, weight: 800 }));
+  return g;
+}
+function openBible(parent, x, y, s) {
+  const g = group(parent);
+  el("path", { d: `M ${x} ${y - s * 0.32} C ${x - s * 0.35} ${y - s * 0.45} ${x - s * 0.8} ${y - s * 0.42} ${x - s} ${y - s * 0.32} V ${y + s * 0.38} C ${x - s * 0.8} ${y + s * 0.28} ${x - s * 0.35} ${y + s * 0.3} ${x} ${y + s * 0.42} Z`, fill: C.cream }, g);
+  el("path", { d: `M ${x} ${y - s * 0.32} C ${x + s * 0.35} ${y - s * 0.45} ${x + s * 0.8} ${y - s * 0.42} ${x + s} ${y - s * 0.32} V ${y + s * 0.38} C ${x + s * 0.8} ${y + s * 0.28} ${x + s * 0.35} ${y + s * 0.3} ${x} ${y + s * 0.42} Z`, fill: "#EFE9DE" }, g);
+  el("rect", { x: x - s * 0.03, y: y - s * 0.34, width: s * 0.06, height: s * 0.78, fill: "#D9CFBC" }, g);
+  for (let i = 0; i < 4; i++) {
+    el("rect", { x: x - s * 0.82, y: y - s * 0.18 + i * s * 0.13, width: s * 0.6, height: 5, rx: 2.5, fill: "#B9AE98" }, g);
+    el("rect", { x: x + s * 0.22, y: y - s * 0.18 + i * s * 0.13, width: s * 0.6, height: 5, rx: 2.5, fill: "#B9AE98" }, g);
+  }
+  // cross above
+  el("rect", { x: x - 5, y: y - s * 0.95, width: 10, height: s * 0.42, fill: C.pre }, g);
+  el("rect", { x: x - s * 0.13, y: y - s * 0.85, width: s * 0.26, height: 10, fill: C.pre }, g);
+  return g;
+}
+// Mini icons used in the intro and the summary.
+function miniPyramid(parent, x, y, s) {
+  const g = group(parent);
+  el("path", { d: `M ${x} ${y - s} L ${x + s} ${y + s * 0.75} L ${x - s} ${y + s * 0.75} Z`, fill: "none", stroke: C.epi, "stroke-width": 6, "stroke-linejoin": "round" }, g);
+  person(g, x, y - s * 0.35, s * 0.32, C.epi);
+  [-0.5, 0, 0.5].forEach((dx) => person(g, x + dx * s, y + s * 0.42, s * 0.24, C.epi));
+  return g;
+}
+function miniIslands(parent, x, y, s) {
+  const g = group(parent);
+  [[-0.5, -0.45], [0.5, -0.45], [-0.5, 0.5], [0.5, 0.5]].forEach(([dx, dy]) => {
+    el("circle", { cx: x + dx * s, cy: y + dy * s, r: s * 0.38, fill: "none", stroke: C.con, "stroke-width": 5 }, g);
+    church(g, x + dx * s, y + dy * s + s * 0.08, s * 0.32, C.con);
+  });
+  return g;
+}
+function miniNetwork(parent, x, y, s) {
+  const g = group(parent);
+  el("rect", { x: x - s * 0.55, y: y - s * 0.95, width: s * 1.1, height: s * 0.45, rx: 12, fill: "none", stroke: C.pre, "stroke-width": 5 }, g);
+  [-0.7, 0, 0.7].forEach((dx) => {
+    line(g, x + dx * s, y + s * 0.3, x + dx * s * 0.45, y - s * 0.5, C.pre, { width: 4 });
+    church(g, x + dx * s, y + s * 0.62, s * 0.34, C.pre);
+  });
+  [-0.3, 0, 0.3].forEach((dx) => person(g, x + dx * s, y - s * 0.72, s * 0.17, C.pre));
+  return g;
+}
+
+// ---------------------------------------------------------------------------
+// Script: caption chunks (what the narrator says), grouped by scene.
+// `cue` names a moment the animation keys off.
+// Sources: Libro de orden 2018 (Prefacio, LG §13-6, §14 votos, §17-2B),
+// Guía de liderazgo («Gobierno constitucional», «Revisión y control»,
+// «1647: se termina la CFW», votos de ordenación), CFW (prólogo, cap. 31.3),
+// Catecismo Menor (P. 1-3), Los esenciales de nuestra fe.
+// ---------------------------------------------------------------------------
+const SCRIPT = [
+  { scene: "intro", text: "¿Qué es la constitución de la iglesia?", cue: "intro.q", hold: 0.5 },
+  { scene: "intro", text: "Veamos qué significa ser una iglesia <em>constitucional</em> y <em>confesional</em>, y qué documentos la forman.", cue: "intro.plan" },
+
+  { scene: "const", text: "Una iglesia constitucional tiene sus creencias, normas y procesos establecidos en documentos escritos.", cue: "const.def" },
+  { scene: "const", text: "En otras, se decide según el parecer del liderazgo de turno.", cue: "const.other", hold: 0.3 },
+  { scene: "const", text: "Y el Presbiterio revisa que cada Consistorio la cumpla.", cue: "const.review" },
+  { scene: "const", text: "Los cambios se logran por consenso del Presbiterio, tras una revisión cuidadosa.", cue: "const.change", hold: 0.4 },
+
+  { scene: "conf", text: "Además, somos una iglesia <em>confesional</em>:", cue: "conf.title" },
+  { scene: "conf", text: "confesamos el sistema de doctrina de las Escrituras, resumido en una confesión de fe.", cue: "conf.system" },
+  { scene: "conf", text: "Cada anciano, al ser ordenado, recibe y adopta la Confesión de Westminster y sus Catecismos,", cue: "conf.vow" },
+  { scene: "conf", text: "y promete avisar a su Consistorio si cambia de parecer.", cue: "conf.promise", hold: 0.3 },
+  { scene: "conf", text: "Pero fue escrita por hombres falibles: siempre está al servicio de la Escritura.", cue: "conf.servant", hold: 0.4 },
+
+  { scene: "docs", text: "Nuestra constitución tiene tres documentos:", cue: "docs.title" },
+  { scene: "docs", text: "la Confesión de Westminster con sus catecismos, el Libro de Orden y Los esenciales de nuestra fe,", cue: "docs.three" },
+  { scene: "docs", text: "todos subordinados a las Sagradas Escrituras, la autoridad final.", cue: "docs.bible", hold: 0.4 },
+
+  { scene: "cfw", text: "La <em>Confesión de Westminster</em> nació por pedido del Parlamento inglés.", cue: "cfw.title" },
+  { scene: "cfw", text: "La redactaron 120 ministros ingleses y 12 escoceses, y la terminaron en 1647.", cue: "cfw.hist" },
+  { scene: "cfw", text: "Nuestra edición incluye las enmiendas de 1789 y capítulos nuevos.", cue: "cfw.edition", hold: 0.3 },
+  { scene: "cfw", text: "En 35 capítulos recorre la fe: las Escrituras, Dios, la creación, la caída;", cue: "cfw.c1" },
+  { scene: "cfw", text: "Cristo, la salvación, la vida cristiana, la iglesia y las últimas cosas.", cue: "cfw.c2", hold: 0.3 },
+  { scene: "cfw", text: "El Catecismo Menor lo enseña en 107 preguntas:", cue: "cfw.cat" },
+  { scene: "cfw", text: "«¿Cuál es el fin principal del hombre? Glorificar a Dios y gozar de Él para siempre.»", cue: "cfw.answer", hold: 0.5 },
+
+  { scene: "lo", text: "La IPSA nació en 1829, por la Iglesia de Escocia; en 1987 formó un presbiterio de la EPC.", cue: "lo.hist" },
+  { scene: "lo", text: "En 2004, ya autónoma, siguió usando su <em>Libro de Orden</em> y empezó a adaptarlo a la Argentina.", cue: "lo.adapt", hold: 0.3 },
+  { scene: "lo", text: "Tiene tres partes: Gobierno, con la iglesia, sus funcionarios y sus cortes;", cue: "lo.gob" },
+  { scene: "lo", text: "Disciplina, para cuidar, corregir y restaurar;", cue: "lo.dis" },
+  { scene: "lo", text: "y Adoración: el culto, los sacramentos, el matrimonio y el sepelio.", cue: "lo.ado", hold: 0.3 },
+  { scene: "lo", text: "Y ningún cambio puede contradecir la Confesión ni los catecismos.", cue: "lo.limit", hold: 0.4 },
+
+  { scene: "ese", text: "Y <em>Los esenciales de nuestra fe</em> establecen siete fundamentos:", cue: "ese.title" },
+  { scene: "ese", text: "un solo Dios en tres personas; Jesucristo, verdadero Dios y verdadero hombre;", cue: "ese.p1" },
+  { scene: "ese", text: "el Espíritu Santo; la salvación por la libre gracia de Dios;", cue: "ese.p2" },
+  { scene: "ese", text: "la iglesia verdadera; el regreso de Cristo; y la Gran Comisión.", cue: "ese.p3", hold: 0.3 },
+  { scene: "ese", text: "Todo funcionario los afirma sin excepción.", cue: "ese.noexc", hold: 0.5 },
+
+  { scene: "end", text: "Escrituras, Confesión, Libro de Orden y Esenciales:", cue: "end.stack" },
+  { scene: "end", text: "para creer, gobernarnos y adorar de acuerdo con la Palabra de Dios.", cue: "end.call", hold: 1.0 },
+];
+
+// Timing: ~2.55 words per second (an unhurried narration pace), plus a short
+// breath between chunks and a longer pause at each scene change.
+const WPS = 2.55, GAP = 0.35, SCENE_GAP = 0.9, START = 0.8, TAIL = 4.0;
+const cues = {}, sceneStart = {}, sceneEnd = {};
+{
+  let t = START, prevScene = null;
+  for (const c of SCRIPT) {
+    if (prevScene && c.scene !== prevScene) { sceneEnd[prevScene] = t; t += SCENE_GAP; }
+    if (!(c.scene in sceneStart)) sceneStart[c.scene] = t - (prevScene ? SCENE_GAP * 0.6 : START);
+    const words = c.text.replace(/<[^>]+>/g, "").split(/\s+/).filter(Boolean).length;
+    c.start = t;
+    c.dur = Math.max(1.6, words / WPS);
+    c.end = t + c.dur;
+    if (c.cue) cues[c.cue] = t;
+    t = c.end + GAP + (c.hold || 0);
+    prevScene = c.scene;
+  }
+  sceneEnd[prevScene] = t + TAIL;
+  window.DURATION = t + TAIL;
+}
+const cue = (name, offset = 0) => cues[name] + offset;
+
+// ---------------------------------------------------------------------------
+// Animation registry
+// ---------------------------------------------------------------------------
+const anims = [];
+// Fade/slide an element in at `tin` and out at `tout`.
+function show(node, tin, tout = Infinity, o = {}) {
+  const dur = o.dur || 0.6, dy = o.dy ?? 26, sc = o.scale ?? 1, px = o.px ?? 540, py = o.py ?? 960;
+  anims.push((t) => {
+    const a = easeOut((t - tin) / dur);
+    const b = 1 - smooth((t - tout) / 0.45);
+    const op = Math.min(a, b) * (o.opacity ?? 1);
+    node.style.opacity = op;
+    if (op <= 0) { node.style.display = "none"; return; }
+    node.style.display = "";
+    const s = sc + (1 - sc) * a;
+    const extra = o.extra ? o.extra(t) : "";
+    node.setAttribute("transform", `${extra} translate(0 ${(1 - a) * dy}) translate(${px} ${py}) scale(${s}) translate(${-px} ${-py})`);
+  });
+  return node;
+}
+// Draw a path (pathLength=1) from tin over dur seconds.
+function draw(path, tin, dur = 0.7, tout = Infinity) {
+  path.setAttribute("stroke-dasharray", "1 1");
+  const marker = path.getAttribute("marker-end");
+  anims.push((t) => {
+    const p = easeOut((t - tin) / dur);
+    path.setAttribute("stroke-dashoffset", 1 - p);
+    // The arrowhead only appears once the line has reached it.
+    if (marker) { if (p > 0.92) path.setAttribute("marker-end", marker); else path.removeAttribute("marker-end"); }
+    path.style.opacity = (p > 0 ? 1 : 0) * (1 - smooth((t - tout) / 0.45));
+  });
+  return path;
+}
+// Dots that keep travelling along a segment, from tin until tout.
+function flow(parent, x1, y1, x2, y2, color, tin, tout, o = {}) {
+  const n = o.n || 2, period = o.period || 1.6, r = o.r || 9;
+  const dots = Array.from({ length: n }, () => el("circle", { r, fill: color }, parent));
+  anims.push((t) => {
+    const vis = smooth((t - tin) / 0.4) * (1 - smooth((t - tout) / 0.4));
+    dots.forEach((d, i) => {
+      const p = (((t - tin) / period + i / n) % 1 + 1) % 1;
+      d.setAttribute("cx", x1 + (x2 - x1) * p);
+      d.setAttribute("cy", y1 + (y2 - y1) * p);
+      d.style.opacity = vis * Math.sin(Math.PI * p);
+    });
+  });
+}
+// Re-colour an element's fills between two colours at time tin.
+function recolor(node, from, to, tin, dur = 0.5) {
+  const parse = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const A = parse(from), B = parse(to);
+  const shapes = node.querySelectorAll("circle, path, rect");
+  anims.push((t) => {
+    const p = smooth((t - tin) / dur);
+    const c = A.map((v, i) => Math.round(v + (B[i] - v) * p));
+    shapes.forEach((s) => s.setAttribute("fill", `rgb(${c.join(",")})`));
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Scene builders
+// ---------------------------------------------------------------------------
+const BOOK = { cfw: "#2F6FB8", lo: "#B23A4E", ese: "#2E9E6B" };
+
+function header(scene, eyebrow, title, color) {
+  const g = group();
+  text(g, 540, 200, eyebrow, { size: 30, weight: 800, color: C.muted, ls: 4 });
+  text(g, 540, 300, title, { family: "Fraunces", weight: 900, size: 88, color: C.white });
+  el("rect", { x: 440, y: 335, width: 200, height: 8, rx: 4, fill: color }, g);
+  show(g, sceneStart[scene] + 0.1, sceneEnd[scene] - 0.2, { dy: -20 });
+}
+function timelineNode(parent, x, y, year, l1, l2, color) {
+  const g = group(parent);
+  el("circle", { cx: x, cy: y, r: 20, fill: color, stroke: C.navy, "stroke-width": 6 }, g);
+  text(g, x, y - 42, year, { family: "Fraunces", weight: 900, size: 46, color });
+  text(g, x, y + 66, l1, { size: 28, weight: 800 });
+  if (l2) text(g, x, y + 102, l2, { size: 28, weight: 800 });
+  return g;
+}
+
+function buildIntro() {
+  const S = "intro", end = sceneEnd[S] - 0.2;
+  const emb = el("image", { href: "../../../assets/source/emblem.png", x: 540 - 75, y: 300, width: 150, height: 169 }, group());
+  show(emb.parentNode, sceneStart[S], end, { dy: 0, scale: 0.9, py: 385 });
+  const t1 = group();
+  text(t1, 540, 640, "La constitución", { family: "Fraunces", weight: 900, size: 100 });
+  text(t1, 540, 755, "de la iglesia", { family: "Fraunces", weight: 900, size: 100 });
+  show(t1, cue("intro.q"), end, { dy: 30 });
+  const sub = group();
+  text(sub, 540, 870, "Constitucional · Confesional", { size: 40, weight: 700, color: C.muted });
+  show(sub, cue("intro.plan", 0.8), end);
+  [["cfw", 250, "Confesión"], ["lo", 540, "Libro de Orden"], ["ese", 830, "Esenciales"]].forEach(([k, x, name], i) => {
+    const g = group();
+    book(g, x, 1110, 170, 215, BOOK[k]);
+    text(g, x, 1285, name, { size: 32, weight: 800 });
+    show(g, cue("intro.plan", 2.2 + i * 0.4), end, { dy: 40, scale: 0.85, px: x, py: 1110 });
+  });
+}
+
+function buildConstitutional() {
+  const S = "const", end = sceneEnd[S] - 0.2;
+  header(S, "PRIMERO", "Constitucional", C.pre);
+  const g = group();
+  // Left: written documents.
+  const L = group(g);
+  el("rect", { x: 70, y: 420, width: 450, height: 650, rx: 40, fill: "rgba(232,181,74,0.08)", stroke: C.pre, "stroke-width": 4 }, L);
+  book(L, 295, 610, 170, 210, C.pre);
+  text(L, 295, 790, "Documentos", { family: "Fraunces", weight: 900, size: 44, color: C.pre });
+  text(L, 295, 840, "escritos", { family: "Fraunces", weight: 900, size: 44, color: C.pre });
+  ["Creencias", "Normas", "Procesos"].forEach((w, i) => {
+    const y = 915 + i * 52;
+    el("path", { d: `M 175 ${y - 10} l 10 11 l 20 -22`, stroke: C.con, "stroke-width": 7, fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" }, L);
+    text(L, 225, y, w, { anchor: "start", size: 34, weight: 700, color: C.cream });
+  });
+  show(L, cue("const.def", 0.2), end, { dy: 40 });
+  // Right: whatever the current leadership thinks.
+  const Rg = group(g);
+  el("rect", { x: 560, y: 420, width: 450, height: 650, rx: 40, fill: "rgba(175,192,222,0.06)", stroke: C.muted, "stroke-width": 4, "stroke-dasharray": "14 12" }, Rg);
+  person(Rg, 785, 640, 130, C.muted);
+  [[680, 520, 54], [890, 540, 44], [700, 740, 40], [880, 720, 50]].forEach(([x, y, s]) => text(Rg, x, y, "?", { family: "Fraunces", weight: 900, size: s, color: C.epi }));
+  text(Rg, 785, 830, "Según el parecer", { size: 36, weight: 800, color: C.cream });
+  text(Rg, 785, 878, "del liderazgo", { size: 36, weight: 800, color: C.cream });
+  text(Rg, 785, 926, "de turno", { size: 36, weight: 800, color: C.cream });
+  show(Rg, cue("const.other", 0.2), end, { dy: 40 });
+  // Review: Presbiterio checks each Consistorio.
+  const rv = group(g);
+  el("rect", { x: 70, y: 1110, width: 940, height: 150, rx: 36, fill: "rgba(248,245,239,0.06)", stroke: C.muted, "stroke-width": 3 }, rv);
+  el("rect", { x: 110, y: 1140, width: 230, height: 90, rx: 22, fill: "none", stroke: C.pre, "stroke-width": 4 }, rv);
+  text(rv, 225, 1197, "Presbiterio", { size: 30, weight: 800, color: C.pre });
+  draw(line(rv, 350, 1185, 470, 1185, C.blue, { width: 5, marker: "arrowBlue" }), cue("const.review", 0.6), 0.5, end);
+  el("rect", { x: 490, y: 1140, width: 230, height: 90, rx: 22, fill: "none", stroke: C.pre, "stroke-width": 4 }, rv);
+  text(rv, 605, 1197, "Consistorio", { size: 30, weight: 800, color: C.pre });
+  el("circle", { cx: 800, cy: 1185, r: 34, fill: C.con }, rv);
+  el("path", { d: "M 784 1185 l 11 12 l 22 -24", stroke: C.navy, "stroke-width": 8, fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" }, rv);
+  text(rv, 900, 1197, "cumple", { size: 30, weight: 800, color: C.con });
+  show(rv, cue("const.review", 0.2), end, { dy: 30 });
+  const ch = group(g);
+  chip(ch, 540, 1340, "Cambios: por consenso, tras una revisión cuidadosa", { size: 28, fill: C.pre });
+  show(ch, cue("const.change", 0.6), end, { dy: 20 });
+}
+
+function buildConfessional() {
+  const S = "conf", end = sceneEnd[S] - 0.2;
+  header(S, "ADEMÁS", "Confesional", C.blue);
+  const g = group();
+  const bible = group(g);
+  openBible(bible, 540, 570, 150);
+  text(bible, 540, 720, "Las Escrituras", { family: "Fraunces", weight: 900, size: 48, color: C.pre });
+  show(bible, cue("conf.title", 0.3), end, { dy: -30, scale: 0.85, py: 570 });
+  draw(line(g, 540, 755, 540, 835, C.cream, { width: 6, marker: "arrowGold" }), cue("conf.system", 0.6), 0.5, end);
+  const conf = group(g);
+  book(conf, 540, 960, 200, 240, BOOK.cfw, ["Confesión de Fe", "y Catecismos"]);
+  show(conf, cue("conf.system", 1.0), end, { dy: 40, scale: 0.85, py: 960 });
+  const sys = group(g);
+  chip(sys, 540, 795, "resume el sistema de doctrina", { size: 26, fill: C.cream });
+  show(sys, cue("conf.system", 1.6), cue("conf.vow"));
+  // The elder's vow.
+  const elder = group(g);
+  person(elder, 175, 930, 120, C.pre);
+  text(elder, 175, 1050, "Anciano", { size: 30, weight: 800, color: C.pre });
+  show(elder, cue("conf.vow", 0.2), end, { dy: 30 });
+  draw(line(g, 250, 930, 420, 950, C.pre, { width: 5, marker: "arrowGold" }), cue("conf.vow", 0.8), 0.5, end);
+  const vow = group(g);
+  chip(vow, 190, 1130, "Recibe y adopta", { size: 28, fill: C.pre });
+  show(vow, cue("conf.vow", 1.4), end);
+  const promise = group(g);
+  el("path", { d: "M 760 860 h 230 a 26 26 0 0 1 26 26 v 96 a 26 26 0 0 1 -26 26 h -150 l -34 34 v -34 h -46 a 26 26 0 0 1 -26 -26 v -96 a 26 26 0 0 1 26 -26 z", fill: C.cream }, promise);
+  text(promise, 875, 925, "Si cambio", { size: 30, weight: 800, color: C.navy });
+  text(promise, 875, 965, "de parecer,", { size: 30, weight: 800, color: C.navy });
+  text(promise, 875, 1003, "aviso", { size: 30, weight: 800, color: C.navy });
+  show(promise, cue("conf.promise", 0.3), end, { dy: 0, scale: 0.6, px: 875, py: 930 });
+  const sup = group(g);
+  chip(sup, 540, 410, "Autoridad suprema", { size: 28, fill: C.pre });
+  show(sup, cue("conf.servant", 0.3), end, { dy: -12 });
+  const fal = group(g);
+  chip(fal, 540, 1260, "Escrita por hombres falibles", { size: 28, fill: C.cream });
+  chip(fal, 540, 1340, "Al servicio de la Escritura", { size: 28, fill: C.blue });
+  show(fal, cue("conf.servant", 0.9), end, { dy: 20 });
+}
+
+function buildDocuments() {
+  const S = "docs", end = sceneEnd[S] - 0.2;
+  header(S, "SEGÚN EL PREFACIO DEL LIBRO DE ORDEN", "Los documentos", C.cream);
+  const g = group();
+  const items = [["cfw", 220, ["Confesión de", "Westminster", "+ Catecismos"]], ["lo", 540, ["Libro", "de Orden"]], ["ese", 860, ["Los esenciales", "de nuestra fe"]]];
+  items.forEach(([k, x, lab], i) => {
+    const b = group(g);
+    book(b, x, 1010, 190, 240, BOOK[k]);
+    lab.forEach((l, j) => text(b, x, 1185 + j * 40, l, { size: 31, weight: 800 }));
+    show(b, cue("docs.three", 0.3 + i * 1.3), end, { dy: 40, scale: 0.85, px: x, py: 1010 });
+    draw(line(g, x, 875, 540 + (i - 1) * 90, 700, C.pre, { width: 5, marker: "arrowGold" }), cue("docs.bible", 0.6 + i * 0.12), 0.5, end);
+  });
+  const three = group(g);
+  text(three, 540, 560, "3", { family: "Fraunces", weight: 900, size: 220, color: C.cream });
+  show(three, cue("docs.title", 0.5), cue("docs.bible"), { dy: 0, scale: 0.6, py: 500 });
+  const bible = group(g);
+  openBible(bible, 540, 560, 140);
+  text(bible, 540, 690, "Sagradas Escrituras", { family: "Fraunces", weight: 900, size: 44, color: C.pre });
+  show(bible, cue("docs.bible", 0.1), end, { dy: -30, scale: 0.85, py: 560 });
+  const sub = group(g);
+  chip(sub, 540, 790, "subordinados", { size: 28, fill: C.cream });
+  show(sub, cue("docs.bible", 1.2), end);
+}
+
+function buildWestminster() {
+  const S = "cfw", end = sceneEnd[S] - 0.2;
+  header(S, "DOCUMENTO 1", "Westminster", BOOK.cfw);
+  const g = group();
+  // --- history -----------------------------------------------------------
+  const histOut = cue("cfw.c1");
+  const parl = group(g);
+  chip(parl, 540, 410, "Por pedido del Parlamento inglés", { size: 28, fill: C.cream });
+  show(parl, cue("cfw.title", 0.5), histOut);
+  const grid = group(g);
+  const dots = [];
+  for (let i = 0; i < 132; i++) {
+    const col = i % 22, row = Math.floor(i / 22);
+    dots.push(el("circle", { cx: 540 - 21 * 22 / 2 + 11 + col * 22, cy: 475 + row * 22, r: 8.5, fill: i >= 120 ? C.pre : C.blue }, grid));
+  }
+  anims.push((t) => dots.forEach((d, i) => {
+    d.style.opacity = smooth((t - cue("cfw.hist", 0.2 + i * 0.012)) / 0.25) * (1 - smooth((t - histOut) / 0.45));
+  }));
+  const legend = group(g);
+  chip(legend, 360, 640, "120 ingleses", { size: 28, fill: C.blue });
+  chip(legend, 720, 640, "12 escoceses", { size: 28, fill: C.pre });
+  show(legend, cue("cfw.hist", 1.8), histOut);
+  const tl = draw(line(g, 150, 820, 930, 820, C.muted, { width: 4 }), cue("cfw.hist", 2.4), 1.0, histOut);
+  const n1 = timelineNode(g, 200, 820, "1647", "Confesión", "terminada", C.blue);
+  show(n1, cue("cfw.hist", 2.8), histOut, { dy: 20 });
+  const n2 = timelineNode(g, 540, 820, "1789", "Enmiendas", null, C.cream);
+  show(n2, cue("cfw.edition", 0.8), histOut, { dy: 20 });
+  const n3 = timelineNode(g, 880, 820, "1903", "Caps. 34 y 35", "nuevos", C.pre);
+  show(n3, cue("cfw.edition", 2.0), histOut, { dy: 20 });
+  const ed = group(g);
+  chip(ed, 540, 1090, "Espíritu Santo · Evangelio y misiones", { size: 28, fill: C.pre });
+  show(ed, cue("cfw.edition", 2.6), histOut);
+  // --- contents ----------------------------------------------------------
+  const conOut = cue("cfw.cat");
+  const ttl = group(g);
+  text(ttl, 540, 450, "35 capítulos", { family: "Fraunces", weight: 900, size: 56, color: C.cream });
+  show(ttl, cue("cfw.c1", 0.2), conOut);
+  const themes1 = ["Las Escrituras", "Dios y la Trinidad", "Los decretos", "La creación", "La providencia", "La caída"];
+  const themes2 = ["El pacto", "Cristo el Mediador", "La salvación", "La vida cristiana", "La iglesia", "Los sacramentos", "Las últimas cosas"];
+  [...themes1, ...themes2].forEach((th, i) => {
+    const col = i % 2, row = Math.floor(i / 2);
+    const x = col ? 760 : 320, y = 540 + row * 92;
+    const c = group(g);
+    chip(c, x, y, th, { size: 30, fill: i < 6 ? C.cream : "#CFE0F7" });
+    const at = i < 6 ? cue("cfw.c1", 1.0 + i * 0.35) : cue("cfw.c2", 0.1 + (i - 6) * 0.45);
+    show(c, at, conOut, { dy: 20, scale: 0.85, px: x, py: y });
+  });
+  // --- catechism ---------------------------------------------------------
+  const cat = group(g);
+  el("rect", { x: 90, y: 470, width: 900, height: 820, rx: 48, fill: "rgba(248,245,239,0.06)", stroke: BOOK.cfw, "stroke-width": 4 }, cat);
+  chip(cat, 540, 470, "Catecismo Menor · 107 preguntas", { size: 30, fill: "#CFE0F7" });
+  text(cat, 540, 640, "Pregunta 1", { size: 32, weight: 800, color: C.muted, ls: 3 });
+  text(cat, 540, 730, "¿Cuál es el fin", { family: "Fraunces", weight: 600, size: 62, italic: true });
+  text(cat, 540, 810, "principal del hombre?", { family: "Fraunces", weight: 600, size: 62, italic: true });
+  show(cat, cue("cfw.cat", 0.2), end, { dy: 30 });
+  const ans = group(g);
+  text(ans, 540, 980, "Glorificar a Dios", { family: "Fraunces", weight: 900, size: 66, color: C.pre });
+  text(ans, 540, 1065, "y gozar de Él", { family: "Fraunces", weight: 900, size: 66, color: C.pre });
+  text(ans, 540, 1150, "para siempre.", { family: "Fraunces", weight: 900, size: 66, color: C.pre });
+  show(ans, cue("cfw.answer", 2.6), end, { dy: 30 });
+}
+
+function buildLibroDeOrden() {
+  const S = "lo", end = sceneEnd[S] - 0.2;
+  header(S, "DOCUMENTO 2", "Libro de Orden", BOOK.lo);
+  const g = group();
+  const histOut = cue("lo.gob");
+  draw(line(g, 110, 700, 970, 700, C.muted, { width: 4 }), cue("lo.hist", 0.2), 1.2, histOut);
+  const nodes = [
+    [150, "1829", "Iglesia", "de Escocia", C.cream, "lo.hist", 0.5],
+    [400, "1987", "Presbiterio", "de la EPC", C.blue, "lo.hist", 3.2],
+    [680, "2004", "IPSA", "autónoma", C.pre, "lo.adapt", 0.3],
+    [930, "2018", "Versión", "actual", "#E58C9B", "lo.adapt", 2.4],
+  ];
+  nodes.forEach(([x, y, l1, l2, col, c, off]) => show(timelineNode(g, x, 700, y, l1, l2, col), cue(c, off), histOut, { dy: 20 }));
+  const adapt = group(g);
+  chip(adapt, 540, 960, "Adaptado al contexto argentino", { size: 30, fill: C.pre });
+  show(adapt, cue("lo.adapt", 3.0), histOut);
+  const bookIcon = group(g);
+  book(bookIcon, 540, 1180, 150, 180, BOOK.lo);
+  show(bookIcon, cue("lo.adapt", 1.2), histOut, { dy: 30, scale: 0.8, py: 1180 });
+  // The three books.
+  const parts = [
+    ["lo.gob", "Gobierno", "La iglesia, sus funcionarios", "y sus cortes", 520],
+    ["lo.dis", "Disciplina", "Cuidar, corregir", "y restaurar", 800],
+    ["lo.ado", "Adoración", "Culto, sacramentos,", "matrimonio y sepelio", 1080],
+  ];
+  parts.forEach(([c, name, d1, d2, y]) => {
+    const r = group(g);
+    book(r, 200, y, 140, 180, BOOK.lo);
+    text(r, 320, y - 30, "Libro de " + name, { anchor: "start", family: "Fraunces", weight: 900, size: 50, color: "#F09AA8" });
+    text(r, 320, y + 25, d1, { anchor: "start", size: 34, weight: 700, color: C.cream });
+    text(r, 320, y + 70, d2, { anchor: "start", size: 34, weight: 700, color: C.cream });
+    show(r, cue(c, 0.2), end, { dy: 40 });
+  });
+  const lim = group(g);
+  chip(lim, 540, 1330, "Nunca contra la Confesión y los catecismos", { size: 30, fill: "#CFE0F7" });
+  show(lim, cue("lo.limit", 0.4), end, { dy: 20 });
+}
+
+function buildEsenciales() {
+  const S = "ese", end = sceneEnd[S] - 0.2;
+  header(S, "DOCUMENTO 3", "Los esenciales", C.con);
+  const g = group();
+  const items = [
+    ["Un solo Dios, en tres personas", "ese.p1", 0.3],
+    ["Jesucristo, Dios y hombre", "ese.p1", 2.6],
+    ["El Espíritu Santo", "ese.p2", 0.2],
+    ["Salvación por gracia", "ese.p2", 1.5],
+    ["La iglesia verdadera", "ese.p3", 0.2],
+    ["El regreso de Cristo", "ese.p3", 1.3],
+    ["La Gran Comisión", "ese.p3", 2.5],
+  ];
+  items.forEach(([label, c, off], i) => {
+    const y = 455 + i * 112;
+    const r = group(g);
+    el("rect", { x: 110, y: y - 46, width: 860, height: 92, rx: 46, fill: "rgba(76,195,138,0.08)", stroke: "rgba(76,195,138,0.5)", "stroke-width": 3 }, r);
+    el("circle", { cx: 160, cy: y, r: 34, fill: C.con }, r);
+    text(r, 160, y + 13, String(i + 1), { family: "Fraunces", weight: 900, size: 40, color: C.navy });
+    text(r, 220, y + 13, label, { anchor: "start", size: 38, weight: 800, color: C.cream });
+    show(r, cue(c, off), end, { dy: 30 });
+  });
+  const stamp = group(g);
+  el("rect", { x: 290, y: 1268, width: 500, height: 104, rx: 18, fill: "none", stroke: C.con, "stroke-width": 8 }, stamp);
+  text(stamp, 540, 1340, "SIN EXCEPCIÓN", { size: 52, weight: 800, color: C.con, ls: 3 });
+  show(stamp, cue("ese.noexc", 0.4), end, { dy: 0, scale: 1.6, py: 1320, extra: () => "rotate(-6 540 1320)" });
+}
+
+function buildEnd() {
+  const S = "end";
+  const g = group();
+  const bible = group(g);
+  openBible(bible, 540, 470, 120);
+  text(bible, 540, 590, "Escrituras", { family: "Fraunces", weight: 900, size: 46, color: C.pre });
+  show(bible, cue("end.stack", 0.1), Infinity, { dy: -30, scale: 0.85, py: 470 });
+  const bars = [["Confesión de Westminster y Catecismos", BOOK.cfw], ["Libro de Orden", BOOK.lo], ["Los esenciales de nuestra fe", BOOK.ese]];
+  bars.forEach(([l, col], i) => {
+    const y = 680 + i * 120;
+    const b = group(g);
+    el("rect", { x: 130, y, width: 820, height: 96, rx: 24, fill: col }, b);
+    text(b, 540, y + 61, l, { size: 34, weight: 800 });
+    show(b, cue("end.stack", 1.0 + i * 0.6), Infinity, { dy: 40 });
+  });
+  const emb = el("image", { href: "../../../assets/source/emblem.png", x: 540 - 80, y: 1060, width: 160, height: 181 }, group(g));
+  show(emb.parentNode, cue("end.call", 0.6), Infinity, { dy: 0, scale: 0.85, py: 1150 });
+  const t1 = group(g);
+  text(t1, 540, 1310, "Iglesia Presbiteriana San Andrés", { family: "Fraunces", weight: 900, size: 46 });
+  text(t1, 540, 1372, "Guía de Formación de Ancianos", { size: 32, weight: 700, color: C.pre });
+  show(t1, cue("end.call", 1.2), Infinity);
+}
+
+// ---------------------------------------------------------------------------
+// Captions + progress bar
+// ---------------------------------------------------------------------------
+const capBox = document.getElementById("captions");
+const capEls = SCRIPT.map((c) => {
+  const d = document.createElement("div");
+  d.className = "cap";
+  d.innerHTML = `<span>${c.text}</span>`;
+  capBox.appendChild(d);
+  return d;
+});
+const capBand = el("rect", { x: 40, y: 1450, width: 1000, height: 340, rx: 44, fill: "rgba(10,17,36,0.45)" });
+const progressBg = el("rect", { x: 70, y: 1846, width: 940, height: 6, rx: 3, fill: "rgba(255,255,255,0.12)" });
+const progress = el("rect", { x: 70, y: 1846, width: 0, height: 6, rx: 3, fill: C.pre });
+
+function renderCaptions(t) {
+  SCRIPT.forEach((c, i) => {
+    const a = smooth((t - c.start + 0.1) / 0.25);
+    const next = SCRIPT[i + 1];
+    const until = next ? Math.min(next.start - 0.1, c.end + 1.2 + (c.hold || 0)) : c.end + 2.5;
+    const b = 1 - smooth((t - until) / 0.2);
+    capEls[i].style.opacity = Math.min(a, b);
+  });
+  progress.setAttribute("width", 940 * clamp(t / window.DURATION));
+}
+
+// ---------------------------------------------------------------------------
+// Load every face before measuring text (unused faces aren't loaded otherwise).
+const FACES = ["900 40px Fraunces", "700 40px Fraunces", "italic 600 40px Fraunces", "600 40px Manrope", "700 40px Manrope", "800 40px Manrope"];
+window.ready = Promise.all(FACES.map((f) => document.fonts.load(f))).then(() => document.fonts.ready).then(() => {
+  buildIntro();
+  buildConstitutional();
+  buildConfessional();
+  buildDocuments();
+  buildWestminster();
+  buildLibroDeOrden();
+  buildEsenciales();
+  buildEnd();
+  window.render(0);
+});
+window.render = (t) => {
+  anims.forEach((f) => f(t));
+  renderCaptions(t);
+};
+window.SCRIPT_TIMING = () => SCRIPT.map((c) => ({ start: c.start, end: c.end, text: c.text.replace(/<[^>]+>/g, ""), scene: c.scene }));
+</script>
+</body>
+</html>

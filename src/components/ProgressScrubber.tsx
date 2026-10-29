@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
-import { PanResponder, StyleSheet, View, type GestureResponderEvent } from "react-native";
+import { PanResponder, StyleSheet, View, type GestureResponderEvent, type ViewInstance } from "react-native";
 import { theme } from "../theme/theme";
 
 interface Props {
@@ -22,7 +22,7 @@ const THUMB = 22;
  * the thumb to scrub through the cards.
  */
 export function ProgressScrubber({ count, index, doneFraction, accentColor, onSeek, accessibilityLabel }: Props) {
-  const trackRef = useRef<View>(null);
+  const trackRef = useRef<ViewInstance>(null);
   const track = useRef({ x: 0, width: 1 });
   const lastSent = useRef(index);
   const [dragging, setDragging] = useState(false);

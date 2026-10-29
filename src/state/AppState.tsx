@@ -1,29 +1,54 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { ExamResult } from "../content/exam";
 
-const SEEN_KEY = "guiaancianos.seenCardIds.v1";
-const ANSWERS_KEY = "guiaancianos.cardAnswers.v1";
-const LAST_CARD_KEY = "guiaancianos.lastCardByPack.v1";
-const EXAMS_KEY = "guiaancianos.examHistory.v1";
+// v2: the course redesign replaced flash cards with multiple-choice
+// questions (new IDs), so progress and exam history start fresh.
+const ANSWERS_KEY = "guiaancianos.questionAnswers.v2";
+const EXAMS_KEY = "guiaancianos.examHistory.v2";
+const VIDEOS_KEY = "guiaancianos.watchedVideoIds.v1";
+const READING_KEY = "guiaancianos.reading.v2";
+// Flash-card era keys, removed on first launch after the update.
+const LEGACY_KEYS = [
+  "guiaancianos.seenCardIds.v1",
+  "guiaancianos.cardAnswers.v1",
+  "guiaancianos.lastCardByPack.v1",
+  "guiaancianos.examHistory.v1",
+  "guiaancianos.reading.v1",
+];
 
 /** How many past Simulacro results are kept on the device. */
 const MAX_EXAM_HISTORY = 20;
 
-export type CardAnswer = "correct";
+/** The latest answer given to a question in its pack or in «Repasá». */
+export type QuestionAnswer = "correct" | "wrong";
+
+type ReadingState = {
+  /** Last chapter opened, by pack (reading) ID. */
+  last: Record<string, string>;
+  /** Chapters read to the end, by document ID. */
+  read: Record<string, string[]>;
+  /** Reader text size step. */
+  size: number;
+};
 
 interface AppStateValue {
   loading: boolean;
-  /** Local-only, on-device "La saqué" marks. No accounts, no sync. */
-  cardAnswers: Record<string, CardAnswer>;
-  /** The last card shown in a pack, so it can reopen where the user left off. */
-  getLastCardId: (packId: string) => string | undefined;
-  setLastCardId: (packId: string, cardId: string) => void;
-  /** Whether a card has ever been shown (feeds the review deck). */
-  hasSeen: (cardId: string) => boolean;
-  markSeen: (cardId: string) => void;
-  /** Pass undefined to clear a card's mark. */
-  markAnswer: (cardId: string, answer: CardAnswer | undefined) => void;
+  /** Local-only, on-device. No accounts, no sync. */
+  questionAnswers: Record<string, QuestionAnswer>;
+  recordAnswer: (questionId: string, correct: boolean) => void;
+  /** Videos watched to (nearly) the end, by video ID. */
+  watchedVideoIds: Record<string, true>;
+  markVideoWatched: (videoId: string) => void;
+  /** The last chapter opened in each reading (by pack ID). */
+  lastChapterByPack: Record<string, string>;
+  setLastChapter: (packId: string, chapterId: string) => void;
+  /** Chapters read to the end, by document ID. */
+  readChaptersByDoc: Record<string, string[]>;
+  markChapterRead: (docId: string, chapterId: string) => void;
+  /** Reader text size step: 0 (small) to 3 (largest). */
+  readerTextSize: number;
+  setReaderTextSize: (size: number) => void;
   /** Past Simulacro results, most recent first. */
   examHistory: ExamResult[];
   saveExamResult: (result: ExamResult) => void;
@@ -42,65 +67,80 @@ function safeParse<T>(raw: string | null, fallback: T): T {
   }
 }
 
+const EMPTY_READING: ReadingState = { last: {}, read: {}, size: 1 };
+
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
-  const [cardAnswers, setCardAnswers] = useState<Record<string, CardAnswer>>({});
+  const [questionAnswers, setQuestionAnswers] = useState<Record<string, QuestionAnswer>>({});
   const [examHistory, setExamHistory] = useState<ExamResult[]>([]);
-
-  // Seen cards and last-card-per-pack are only ever read on demand (Home's
-  // review count when it regains focus; StudyScreen once on mount), so they
-  // live in refs: writing them on every card shown must not re-render every
-  // consumer mid-animation. They still persist to AsyncStorage as usual.
-  const seenCardIdsRef = useRef<Set<string>>(new Set());
-  const lastCardIdByPackRef = useRef<Record<string, string>>({});
+  const [watchedVideoIds, setWatchedVideoIds] = useState<Record<string, true>>({});
+  const [reading, setReading] = useState<ReadingState>(EMPTY_READING);
 
   useEffect(() => {
     (async () => {
       try {
-        const [storedSeen, storedAnswers, storedLastCard, storedExams] = await Promise.all([
-          AsyncStorage.getItem(SEEN_KEY),
+        const [storedAnswers, storedExams, storedVideos, storedReading] = await Promise.all([
           AsyncStorage.getItem(ANSWERS_KEY),
-          AsyncStorage.getItem(LAST_CARD_KEY),
           AsyncStorage.getItem(EXAMS_KEY),
+          AsyncStorage.getItem(VIDEOS_KEY),
+          AsyncStorage.getItem(READING_KEY),
         ]);
-        seenCardIdsRef.current = new Set(safeParse<string[]>(storedSeen, []));
-        setCardAnswers(safeParse<Record<string, CardAnswer>>(storedAnswers, {}));
-        lastCardIdByPackRef.current = safeParse<Record<string, string>>(storedLastCard, {});
+        setQuestionAnswers(safeParse<Record<string, QuestionAnswer>>(storedAnswers, {}));
         setExamHistory(safeParse<ExamResult[]>(storedExams, []));
+        setWatchedVideoIds(safeParse<Record<string, true>>(storedVideos, {}));
+        const r = safeParse<Partial<ReadingState>>(storedReading, {});
+        setReading({ last: r.last ?? {}, read: r.read ?? {}, size: typeof r.size === "number" ? r.size : 1 });
+        AsyncStorage.multiRemove(LEGACY_KEYS).catch(() => {});
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  const hasSeen = useCallback((cardId: string) => seenCardIdsRef.current.has(cardId), []);
-
-  const markSeen = useCallback((cardId: string) => {
-    if (seenCardIdsRef.current.has(cardId)) return;
-    const next = new Set(seenCardIdsRef.current);
-    next.add(cardId);
-    seenCardIdsRef.current = next;
-    AsyncStorage.setItem(SEEN_KEY, JSON.stringify(Array.from(next))).catch(() => {});
-  }, []);
-
-  const markAnswer = useCallback((cardId: string, answer: CardAnswer | undefined) => {
-    setCardAnswers((prev) => {
-      const next = { ...prev };
-      if (answer) next[cardId] = answer;
-      else delete next[cardId];
+  const recordAnswer = useCallback((questionId: string, correct: boolean) => {
+    const answer: QuestionAnswer = correct ? "correct" : "wrong";
+    setQuestionAnswers((prev) => {
+      if (prev[questionId] === answer) return prev;
+      const next = { ...prev, [questionId]: answer };
       AsyncStorage.setItem(ANSWERS_KEY, JSON.stringify(next)).catch(() => {});
       return next;
     });
   }, []);
 
-  const getLastCardId = useCallback((packId: string) => lastCardIdByPackRef.current[packId], []);
-
-  const setLastCardId = useCallback((packId: string, cardId: string) => {
-    if (lastCardIdByPackRef.current[packId] === cardId) return;
-    const next = { ...lastCardIdByPackRef.current, [packId]: cardId };
-    lastCardIdByPackRef.current = next;
-    AsyncStorage.setItem(LAST_CARD_KEY, JSON.stringify(next)).catch(() => {});
+  const markVideoWatched = useCallback((videoId: string) => {
+    setWatchedVideoIds((prev) => {
+      if (prev[videoId]) return prev;
+      const next = { ...prev, [videoId]: true as const };
+      AsyncStorage.setItem(VIDEOS_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
   }, []);
+
+  const updateReading = useCallback((fn: (r: ReadingState) => ReadingState) => {
+    setReading((prev) => {
+      const next = fn(prev);
+      if (next === prev) return prev;
+      AsyncStorage.setItem(READING_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }, []);
+  const setLastChapter = useCallback(
+    (packId: string, chapterId: string) =>
+      updateReading((r) => (r.last[packId] === chapterId ? r : { ...r, last: { ...r.last, [packId]: chapterId } })),
+    [updateReading]
+  );
+  const markChapterRead = useCallback(
+    (docId: string, chapterId: string) =>
+      updateReading((r) => {
+        const done = r.read[docId] ?? [];
+        return done.includes(chapterId) ? r : { ...r, read: { ...r.read, [docId]: [...done, chapterId] } };
+      }),
+    [updateReading]
+  );
+  const setReaderTextSize = useCallback(
+    (size: number) => updateReading((r) => (r.size === size ? r : { ...r, size })),
+    [updateReading]
+  );
 
   const saveExamResult = useCallback((result: ExamResult) => {
     setExamHistory((prev) => {
@@ -110,16 +150,14 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // Clears the course progress (answers, videos, reading) but keeps the
+  // reader's text size and the Simulacro history.
   const resetProgress = useCallback(async () => {
-    seenCardIdsRef.current = new Set();
-    lastCardIdByPackRef.current = {};
-    setCardAnswers({});
-    await Promise.all([
-      AsyncStorage.removeItem(SEEN_KEY),
-      AsyncStorage.removeItem(ANSWERS_KEY),
-      AsyncStorage.removeItem(LAST_CARD_KEY),
-    ]);
-  }, []);
+    setQuestionAnswers({});
+    setWatchedVideoIds({});
+    updateReading((r) => ({ ...r, last: {}, read: {} }));
+    await Promise.all([AsyncStorage.removeItem(ANSWERS_KEY), AsyncStorage.removeItem(VIDEOS_KEY)]);
+  }, [updateReading]);
 
   const clearExamHistory = useCallback(async () => {
     setExamHistory([]);
@@ -129,12 +167,16 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo(
     () => ({
       loading,
-      cardAnswers,
-      getLastCardId,
-      setLastCardId,
-      hasSeen,
-      markSeen,
-      markAnswer,
+      questionAnswers,
+      recordAnswer,
+      watchedVideoIds,
+      markVideoWatched,
+      lastChapterByPack: reading.last,
+      setLastChapter,
+      readChaptersByDoc: reading.read,
+      markChapterRead,
+      readerTextSize: reading.size,
+      setReaderTextSize,
       examHistory,
       saveExamResult,
       resetProgress,
@@ -142,12 +184,14 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       loading,
-      cardAnswers,
-      getLastCardId,
-      setLastCardId,
-      hasSeen,
-      markSeen,
-      markAnswer,
+      questionAnswers,
+      recordAnswer,
+      watchedVideoIds,
+      markVideoWatched,
+      reading,
+      setLastChapter,
+      markChapterRead,
+      setReaderTextSize,
       examHistory,
       saveExamResult,
       resetProgress,
@@ -158,8 +202,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
 }
 
-export function useAppState() {
+export function useAppState(): AppStateValue {
   const ctx = useContext(AppStateContext);
-  if (!ctx) throw new Error("useAppState must be used within AppStateProvider");
+  if (!ctx) throw new Error("useAppState must be used inside <AppStateProvider>");
   return ctx;
 }

@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<style>
+  @font-face { font-family: "Fraunces"; font-weight: 900; src: url("../../../node_modules/@expo-google-fonts/fraunces/900Black/Fraunces_900Black.ttf"); }
+  @font-face { font-family: "Fraunces"; font-weight: 700; src: url("../../../node_modules/@expo-google-fonts/fraunces/700Bold/Fraunces_700Bold.ttf"); }
+  @font-face { font-family: "Fraunces"; font-weight: 600; font-style: italic; src: url("../../../node_modules/@expo-google-fonts/fraunces/600SemiBold_Italic/Fraunces_600SemiBold_Italic.ttf"); }
+  @font-face { font-family: "Manrope"; font-weight: 600; src: url("../../../node_modules/@expo-google-fonts/manrope/600SemiBold/Manrope_600SemiBold.ttf"); }
+  @font-face { font-family: "Manrope"; font-weight: 700; src: url("../../../node_modules/@expo-google-fonts/manrope/700Bold/Manrope_700Bold.ttf"); }
+  @font-face { font-family: "Manrope"; font-weight: 800; src: url("../../../node_modules/@expo-google-fonts/manrope/800ExtraBold/Manrope_800ExtraBold.ttf"); }
+  html, body { margin: 0; padding: 0; width: 1080px; height: 1920px; overflow: hidden; background: #1A2B51; }
+  #stage { position: absolute; inset: 0; }
+  svg { position: absolute; inset: 0; }
+  #captions { position: absolute; left: 70px; right: 70px; top: 1470px; height: 300px; }
+  .cap {
+    position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    font-family: "Manrope"; font-weight: 700; font-size: 50px; line-height: 1.32; color: #FFFFFF;
+    opacity: 0;
+  }
+  .cap em { font-style: normal; color: #F2C66A; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <svg id="svg" width="1080" height="1920" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#24396D" />
+        <stop offset="1" stop-color="#131E3B" />
+      </linearGradient>
+      <radialGradient id="glow" cx="0.5" cy="0.35" r="0.6">
+        <stop offset="0" stop-color="#3A5596" stop-opacity="0.55" />
+        <stop offset="1" stop-color="#3A5596" stop-opacity="0" />
+      </radialGradient>
+      <marker id="arrowGold" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#E8B54A" />
+      </marker>
+      <marker id="arrowBlue" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#8DB8F2" />
+      </marker>
+      <marker id="arrowRose" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#E06B7D" />
+      </marker>
+    </defs>
+    <rect width="1080" height="1920" fill="url(#bg)" />
+    <rect width="1080" height="1920" fill="url(#glow)" />
+    <g id="root"></g>
+  </svg>
+  <div id="captions"></div>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Palette + helpers
+// ---------------------------------------------------------------------------
+const C = {
+  navy: "#1A2B51", cream: "#F8F5EF", white: "#FFFFFF", muted: "#AFC0DE",
+  epi: "#E06B7D", con: "#4CC38A", pre: "#E8B54A", blue: "#8DB8F2",
+};
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const smooth = (x) => { x = clamp(x); return x * x * (3 - 2 * x); };
+const easeOut = (x) => 1 - Math.pow(1 - clamp(x), 3);
+const NS = "http://www.w3.org/2000/svg";
+const root = document.getElementById("root");
+
+function el(tag, attrs = {}, parent = root) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  parent.appendChild(e);
+  return e;
+}
+function group(parent = root, attrs = {}) { return el("g", attrs, parent); }
+function text(parent, x, y, str, o = {}) {
+  const t = el("text", {
+    x, y, "text-anchor": o.anchor || "middle",
+    "font-family": o.family || "Manrope", "font-weight": o.weight || 700,
+    "font-size": o.size || 34, fill: o.color || C.white,
+    ...(o.italic ? { "font-style": "italic" } : {}),
+    ...(o.ls ? { "letter-spacing": o.ls } : {}),
+  }, parent);
+  t.textContent = str;
+  return t;
+}
+// Pill-shaped label, centred on (x, y).
+function chip(parent, x, y, str, o = {}) {
+  const g = group(parent);
+  const size = o.size || 32;
+  const t = text(g, x, y + size * 0.36, str, { size, weight: 800, color: o.textColor || C.navy });
+  const w = t.getComputedTextLength() + size * 1.4;
+  const h = size * 1.75;
+  const r = el("rect", { x: x - w / 2, y: y - h / 2, width: w, height: h, rx: h / 2,
+    fill: o.fill || C.cream, stroke: o.stroke || "none", "stroke-width": o.stroke ? 3 : 0 }, g);
+  g.insertBefore(r, t);
+  return g;
+}
+function person(parent, x, y, s, color) {
+  const g = group(parent);
+  el("circle", { cx: x, cy: y - s * 0.52, r: s * 0.3, fill: color }, g);
+  el("path", { d: `M ${x - s * 0.5} ${y + s * 0.55} V ${y + s * 0.12} a ${s * 0.5} ${s * 0.42} 0 0 1 ${s} 0 V ${y + s * 0.55} Z`, fill: color }, g);
+  return g;
+}
+function church(parent, x, y, s, color, door = C.navy) {
+  const g = group(parent);
+  // cross
+  el("rect", { x: x - s * 0.04, y: y - s * 0.98, width: s * 0.08, height: s * 0.34, fill: color }, g);
+  el("rect", { x: x - s * 0.13, y: y - s * 0.88, width: s * 0.26, height: s * 0.075, fill: color }, g);
+  // roof + body
+  el("path", { d: `M ${x - s * 0.62} ${y - s * 0.1} L ${x} ${y - s * 0.64} L ${x + s * 0.62} ${y - s * 0.1} Z`, fill: color }, g);
+  el("rect", { x: x - s * 0.48, y: y - s * 0.16, width: s * 0.96, height: s * 0.72, fill: color }, g);
+  el("path", { d: `M ${x - s * 0.13} ${y + s * 0.56} V ${y + s * 0.2} a ${s * 0.13} ${s * 0.13} 0 0 1 ${s * 0.26} 0 V ${y + s * 0.56} Z`, fill: door }, g);
+  return g;
+}
+function line(parent, x1, y1, x2, y2, color, o = {}) {
+  return el("path", {
+    d: `M ${x1} ${y1} L ${x2} ${y2}`, stroke: color, "stroke-width": o.width || 5,
+    "stroke-linecap": "round", fill: "none", pathLength: 1,
+    ...(o.marker ? { "marker-end": `url(#${o.marker})` } : {}),
+  }, parent);
+}
+function book(parent, x, y, w, h, color, label) {
+  const g = group(parent);
+  el("rect", { x: x - w / 2, y: y - h / 2, width: w, height: h, rx: 10, fill: color }, g);
+  el("rect", { x: x - w / 2, y: y - h / 2, width: w * 0.12, height: h, rx: 6, fill: "rgba(0,0,0,0.18)" }, g);
+  el("rect", { x: x - w * 0.28, y: y - h * 0.3, width: w * 0.66, height: 6, rx: 3, fill: "rgba(255,255,255,0.75)" }, g);
+  el("rect", { x: x - w * 0.28, y: y - h * 0.2, width: w * 0.5, height: 6, rx: 3, fill: "rgba(255,255,255,0.55)" }, g);
+  if (label) label.forEach((l, i) => text(g, x, y + h / 2 + 52 + i * 40, l, { size: 32, weight: 800 }));
+  return g;
+}
+function openBible(parent, x, y, s) {
+  const g = group(parent);
+  el("path", { d: `M ${x} ${y - s * 0.32} C ${x - s * 0.35} ${y - s * 0.45} ${x - s * 0.8} ${y - s * 0.42} ${x - s} ${y - s * 0.32} V ${y + s * 0.38} C ${x - s * 0.8} ${y + s * 0.28} ${x - s * 0.35} ${y + s * 0.3} ${x} ${y + s * 0.42} Z`, fill: C.cream }, g);
+  el("path", { d: `M ${x} ${y - s * 0.32} C ${x + s * 0.35} ${y - s * 0.45} ${x + s * 0.8} ${y - s * 0.42} ${x + s} ${y - s * 0.32} V ${y + s * 0.38} C ${x + s * 0.8} ${y + s * 0.28} ${x + s * 0.35} ${y + s * 0.3} ${x} ${y + s * 0.42} Z`, fill: "#EFE9DE" }, g);
+  el("rect", { x: x - s * 0.03, y: y - s * 0.34, width: s * 0.06, height: s * 0.78, fill: "#D9CFBC" }, g);
+  for (let i = 0; i < 4; i++) {
+    el("rect", { x: x - s * 0.82, y: y - s * 0.18 + i * s * 0.13, width: s * 0.6, height: 5, rx: 2.5, fill: "#B9AE98" }, g);
+    el("rect", { x: x + s * 0.22, y: y - s * 0.18 + i * s * 0.13, width: s * 0.6, height: 5, rx: 2.5, fill: "#B9AE98" }, g);
+  }
+  // cross above
+  el("rect", { x: x - 5, y: y - s * 0.95, width: 10, height: s * 0.42, fill: C.pre }, g);
+  el("rect", { x: x - s * 0.13, y: y - s * 0.85, width: s * 0.26, height: 10, fill: C.pre }, g);
+  return g;
+}
+// Mini icons used in the intro and the summary.
+function miniPyramid(parent, x, y, s) {
+  const g = group(parent);
+  el("path", { d: `M ${x} ${y - s} L ${x + s} ${y + s * 0.75} L ${x - s} ${y + s * 0.75} Z`, fill: "none", stroke: C.epi, "stroke-width": 6, "stroke-linejoin": "round" }, g);
+  person(g, x, y - s * 0.35, s * 0.32, C.epi);
+  [-0.5, 0, 0.5].forEach((dx) => person(g, x + dx * s, y + s * 0.42, s * 0.24, C.epi));
+  return g;
+}
+function miniIslands(parent, x, y, s) {
+  const g = group(parent);
+  [[-0.5, -0.45], [0.5, -0.45], [-0.5, 0.5], [0.5, 0.5]].forEach(([dx, dy]) => {
+    el("circle", { cx: x + dx * s, cy: y + dy * s, r: s * 0.38, fill: "none", stroke: C.con, "stroke-width": 5 }, g);
+    church(g, x + dx * s, y + dy * s + s * 0.08, s * 0.32, C.con);
+  });
+  return g;
+}
+function miniNetwork(parent, x, y, s) {
+  const g = group(parent);
+  el("rect", { x: x - s * 0.55, y: y - s * 0.95, width: s * 1.1, height: s * 0.45, rx: 12, fill: "none", stroke: C.pre, "stroke-width": 5 }, g);
+  [-0.7, 0, 0.7].forEach((dx) => {
+    line(g, x + dx * s, y + s * 0.3, x + dx * s * 0.45, y - s * 0.5, C.pre, { width: 4 });
+    church(g, x + dx * s, y + s * 0.62, s * 0.34, C.pre);
+  });
+  [-0.3, 0, 0.3].forEach((dx) => person(g, x + dx * s, y - s * 0.72, s * 0.17, C.pre));
+  return g;
+}
+
+// Script: «El pacto y las últimas cosas» (repaso).
+// Source (only): Guía de Formación de Liderazgo, «Teología», secciones 9-10:
+// La teología del pacto (pacto de obras, de redención y de gracia; Cristo el
+// último Adán; imputación; el lugar de la fe; los pactos a través de la
+// Biblia; la familia) y La escatología (muerte y estado intermedio, CFW 32;
+// el llamado a los gentiles; el retorno de Cristo; resurrección, juicio y
+// consumación; las distintas perspectivas sobre el milenio).
+// ---------------------------------------------------------------------------
+const SCRIPT = [
+  { scene: "intro", text: "¿Qué une a toda la Biblia, de Génesis a Apocalipsis?", cue: "intro.q" },
+  { scene: "intro", text: "La teología reformada responde: el pacto, la manera en que Dios decidió relacionarse con el mundo.", cue: "intro.pact", hold: 0.3 },
+
+  { scene: "works", text: "En el pacto de obras, Dios prometió vida a Adán por una obediencia perfecta. Adán desobedeció, y todos caímos con él.", cue: "w.adam" },
+  { scene: "works", text: "Desde entonces, nadie puede salvarse por su propia obediencia.", cue: "w.none", hold: 0.3 },
+
+  { scene: "red", text: "Pero desde la eternidad, el Padre y el Hijo acordaron salvar a los suyos: es el pacto de redención.", cue: "r.eternal" },
+  { scene: "red", text: "En la historia se despliega como pacto de gracia, anunciado ya en Génesis 3:15.", cue: "r.grace" },
+  { scene: "red", text: "Cristo, el último Adán, obedeció por nosotros: su justicia se nos imputa, y nuestros pecados se le imputaron a él.", cue: "r.adam" },
+  { scene: "red", text: "La fe no nos salva por sí misma: Cristo nos salva por medio de la fe, que es un regalo de Dios.", cue: "r.faith", hold: 0.3 },
+
+  { scene: "cov", text: "El pacto avanza por etapas: Noé, Abraham, Moisés, David, y el nuevo pacto en Cristo.", cue: "c.list" },
+  { scene: "cov", text: "La promesa es siempre la misma: «Yo seré su Dios, y ellos serán mi pueblo». Él promete ser también el Dios de nuestros hijos.", cue: "c.promise", hold: 0.3 },
+
+  { scene: "esc", text: "Y la historia tiene un destino. La escatología estudia las últimas cosas, y le da sentido a nuestro presente.", cue: "e.dest" },
+  { scene: "esc", text: "Al morir, el cuerpo vuelve al polvo, pero el alma vive. Los creyentes son hechos perfectos en santidad y entran en la presencia de Dios.", cue: "e.death", hold: 0.3 },
+
+  { scene: "ret", text: "Antes del fin, el evangelio llegará a todas las naciones.", cue: "x.nations" },
+  { scene: "ret", text: "Cristo volverá: en persona, visible y en gloria, en un día que nadie conoce.", cue: "x.return" },
+  { scene: "ret", text: "Los muertos resucitarán, Cristo juzgará al mundo, y habrá cielos nuevos y tierra nueva.", cue: "x.judge" },
+  { scene: "ret", text: "Sobre el milenio de Apocalipsis 20 hay varias interpretaciones, que la Guía presenta y compara.", cue: "x.mil", hold: 0.3 },
+
+  { scene: "end", text: "«Yo seré su Dios, y ellos serán mi pueblo».", cue: "end.fade" },
+  { scene: "end", text: "Amén. Ven, Señor Jesús.", cue: "end.next", hold: 1.2 },
+];
+
+// Timing: ~2.55 words per second (an unhurried narration pace), plus a short
+// breath between chunks and a longer pause at each scene change.
+const WPS = 2.55, GAP = 0.35, SCENE_GAP = 0.9, START = 0.8, TAIL = 4.0;
+const cues = {}, sceneStart = {}, sceneEnd = {};
+{
+  let t = START, prevScene = null;
+  for (const c of SCRIPT) {
+    if (prevScene && c.scene !== prevScene) { sceneEnd[prevScene] = t; t += SCENE_GAP; }
+    if (!(c.scene in sceneStart)) sceneStart[c.scene] = t - (prevScene ? SCENE_GAP * 0.6 : START);
+    const words = c.text.replace(/<[^>]+>/g, "").split(/\s+/).filter(Boolean).length;
+    c.start = t;
+    c.dur = Math.max(1.6, words / WPS);
+    c.end = t + c.dur;
+    if (c.cue) cues[c.cue] = t;
+    t = c.end + GAP + (c.hold || 0);
+    prevScene = c.scene;
+  }
+  sceneEnd[prevScene] = t + TAIL;
+  window.DURATION = t + TAIL;
+}
+const cue = (name, offset = 0) => { if (!(name in cues)) throw new Error("unknown cue " + name); return cues[name] + offset; };
+
+// ---------------------------------------------------------------------------
+// Animation registry
+// ---------------------------------------------------------------------------
+const anims = [];
+// Fade/slide an element in at `tin` and out at `tout`.
+function show(node, tin, tout = Infinity, o = {}) {
+  const dur = o.dur || 0.6, dy = o.dy ?? 26, sc = o.scale ?? 1, px = o.px ?? 540, py = o.py ?? 960;
+  anims.push((t) => {
+    const a = easeOut((t - tin) / dur);
+    const b = 1 - smooth((t - tout) / 0.45);
+    const op = Math.min(a, b) * (o.opacity ?? 1);
+    node.style.opacity = op;
+    if (op <= 0) { node.style.display = "none"; return; }
+    node.style.display = "";
+    const s = sc + (1 - sc) * a;
+    const extra = o.extra ? o.extra(t) : "";
+    node.setAttribute("transform", `${extra} translate(0 ${(1 - a) * dy}) translate(${px} ${py}) scale(${s}) translate(${-px} ${-py})`);
+  });
+  return node;
+}
+// Draw a path (pathLength=1) from tin over dur seconds.
+function draw(path, tin, dur = 0.7, tout = Infinity) {
+  path.setAttribute("stroke-dasharray", "1 1");
+  const marker = path.getAttribute("marker-end");
+  anims.push((t) => {
+    const p = easeOut((t - tin) / dur);
+    path.setAttribute("stroke-dashoffset", 1 - p);
+    // The arrowhead only appears once the line has reached it.
+    if (marker) { if (p > 0.92) path.setAttribute("marker-end", marker); else path.removeAttribute("marker-end"); }
+    path.style.opacity = (p > 0 ? 1 : 0) * (1 - smooth((t - tout) / 0.45));
+  });
+  return path;
+}
+// Dots that keep travelling along a segment, from tin until tout.
+function flow(parent, x1, y1, x2, y2, color, tin, tout, o = {}) {
+  const n = o.n || 2, period = o.period || 1.6, r = o.r || 9;
+  const dots = Array.from({ length: n }, () => el("circle", { r, fill: color }, parent));
+  anims.push((t) => {
+    const vis = smooth((t - tin) / 0.4) * (1 - smooth((t - tout) / 0.4));
+    dots.forEach((d, i) => {
+      const p = (((t - tin) / period + i / n) % 1 + 1) % 1;
+      d.setAttribute("cx", x1 + (x2 - x1) * p);
+      d.setAttribute("cy", y1 + (y2 - y1) * p);
+      d.style.opacity = vis * Math.sin(Math.PI * p);
+    });
+  });
+}
+// Re-colour an element's fills between two colours at time tin.
+function recolor(node, from, to, tin, dur = 0.5) {
+  const parse = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const A = parse(from), B = parse(to);
+  const shapes = node.querySelectorAll("circle, path, rect");
+  anims.push((t) => {
+    const p = smooth((t - tin) / dur);
+    const c = A.map((v, i) => Math.round(v + (B[i] - v) * p));
+    shapes.forEach((s) => s.setAttribute("fill", `rgb(${c.join(",")})`));
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Shared helpers for the history videos
+// ---------------------------------------------------------------------------
+function header(scene, eyebrow, title, color, size = 88) {
+  const g = group();
+  text(g, 540, 200, eyebrow, { size: 30, weight: 800, color: C.muted, ls: 4 });
+  text(g, 540, 300, title, { family: "Fraunces", weight: 900, size, color: C.white });
+  el("rect", { x: 440, y: 335, width: 200, height: 8, rx: 4, fill: color }, g);
+  show(g, sceneStart[scene] + 0.1, sceneEnd[scene] - 0.2, { dy: -20 });
+}
+// Big year + title for a moment in the story.
+function era(scene, cueName, year, title, color, o = {}) {
+  const end = o.until ?? (sceneEnd[scene] - 0.2);
+  const g = group();
+  text(g, 540, o.y ?? 470, year, { family: "Fraunces", weight: 900, size: o.yearSize ?? 150, color });
+  text(g, 540, (o.y ?? 470) + 90, title, { family: "Fraunces", weight: 900, size: o.titleSize ?? 62, color: C.white });
+  show(g, cue(cueName, o.off ?? 0), end, { dy: 30, scale: 0.9, py: (o.y ?? 470) - 40 });
+  return g;
+}
+function churchPin(parent, x, y, label, year, color = C.cream) {
+  const g = group(parent);
+  church(g, x, y, 80, color, C.navy);
+  text(g, x, y + 85, label, { size: 28, weight: 800, color: C.cream });
+  if (year) text(g, x, y + 122, year, { family: "Fraunces", weight: 900, size: 32, color: C.pre });
+  return g;
+}
+function ship(parent, x, y, s, color = C.cream) {
+  const g = group(parent);
+  el("path", { d: `M ${x - s} ${y} L ${x + s} ${y} L ${x + s * 0.75} ${y + s * 0.4} L ${x - s * 0.75} ${y + s * 0.4} Z`, fill: color }, g);
+  el("rect", { x: x - 4, y: y - s * 1.1, width: 8, height: s * 1.1, fill: color }, g);
+  el("path", { d: `M ${x + 8} ${y - s * 1.05} L ${x + s * 0.7} ${y - s * 0.2} L ${x + 8} ${y - s * 0.2} Z`, fill: color, opacity: 0.85 }, g);
+  el("path", { d: `M ${x - 8} ${y - s * 0.9} L ${x - s * 0.6} ${y - s * 0.2} L ${x - 8} ${y - s * 0.2} Z`, fill: color, opacity: 0.7 }, g);
+  for (let i = 0; i < 3; i++) el("path", { d: `M ${x - s * 1.2 + i * s * 0.8} ${y + s * 0.6} q ${s * 0.2} -${s * 0.15} ${s * 0.4} 0 t ${s * 0.4} 0`, stroke: C.blue, "stroke-width": 4, fill: "none" }, g);
+  return g;
+}
+function saltireFlag(parent, x, y, w, h) {
+  const g = group(parent);
+  el("rect", { x: x - w / 2, y: y - h / 2, width: w, height: h, rx: 8, fill: "#2F6FB8" }, g);
+  el("path", { d: `M ${x - w / 2 + 8} ${y - h / 2 + 8} L ${x + w / 2 - 8} ${y + h / 2 - 8} M ${x + w / 2 - 8} ${y - h / 2 + 8} L ${x - w / 2 + 8} ${y + h / 2 - 8}`, stroke: C.white, "stroke-width": h * 0.16, "stroke-linecap": "butt" }, g);
+  return g;
+}
+function cross(parent, x, y, s, color) {
+  const g = group(parent);
+  el("path", { d: `M ${x - s} ${y - s} L ${x + s} ${y + s} M ${x + s} ${y - s} L ${x - s} ${y + s}`, stroke: color, "stroke-width": s * 0.35, "stroke-linecap": "round" }, g);
+  return g;
+}
+// A running timeline just above the captions: one dot per moment.
+function runningTimeline(points) {
+  const g = group();
+  const x0 = 110, x1 = 970, y = 1405;
+  el("path", { d: `M ${x0} ${y} L ${x1} ${y}`, stroke: "rgba(175,192,222,0.35)", "stroke-width": 4 }, g);
+  const xs = points.map((_, i) => x0 + (x1 - x0) * (points.length === 1 ? 0.5 : i / (points.length - 1)));
+  const dots = points.map(([label, c], i) => {
+    const d = group(g);
+    const circle = el("circle", { cx: xs[i], cy: y, r: 10, fill: C.muted }, d);
+    const t = text(d, xs[i], y - 26, label, { size: 24, weight: 800, color: C.muted });
+    return { circle, t, at: cue(c) };
+  });
+  anims.push((t) => {
+    let active = -1;
+    dots.forEach((d, i) => { if (t >= d.at - 0.2) active = i; });
+    dots.forEach((d, i) => {
+      const on = i === active, past = i < active;
+      d.circle.setAttribute("r", on ? 16 : 10);
+      d.circle.setAttribute("fill", on ? C.pre : past ? C.cream : C.muted);
+      d.t.setAttribute("fill", on ? C.pre : past ? C.cream : C.muted);
+      d.t.setAttribute("font-size", on ? 30 : 24);
+    });
+  });
+  const first = Math.min(...dots.map((d) => d.at));
+  show(g, first - 0.6, cue("end.fade", 0), { dy: 0 });
+  return g;
+}
+// ---------------------------------------------------------------------------
+// Scene kit shared by the doctrine / Libro de orden videos (load after
+// history_helpers.js). Layout zone: y 160–1380 (captions sit below).
+// ---------------------------------------------------------------------------
+const SERIF = { family: "Fraunces", weight: 900 };
+
+// Emblem + two-line title + optional chips, for the opening scene.
+function introScene(S, eyebrow, l1, l2, chips = [], o = {}) {
+  const end = sceneEnd[S] - 0.2;
+  const emb = el("image", { href: "../../../assets/source/emblem.png", x: 540 - 80, y: 250, width: 160, height: 180 }, group());
+  show(emb.parentNode, sceneStart[S], end, { dy: 0, scale: 0.9, py: 340 });
+  const ey = group();
+  text(ey, 540, 520, eyebrow, { size: 30, weight: 800, color: C.muted, ls: 4 });
+  show(ey, sceneStart[S] + 0.3, end, { dy: 10 });
+  const t = group();
+  text(t, 540, 630, l1, { ...SERIF, size: o.size ?? 96 });
+  if (l2) text(t, 540, 735, l2, { ...SERIF, size: o.size ?? 96, color: o.color ?? C.pre });
+  show(t, cue(o.titleCue ?? "intro.q", 0.2), end, { dy: 30 });
+  chips.forEach(([label, fill, x, y, c, off], i) => {
+    const k = group();
+    chip(k, x, y, label, { size: 34, fill });
+    show(k, cue(c, off ?? 0.3 + i * 0.5), end, { dy: 0, scale: 0.6, px: x, py: y });
+  });
+}
+
+// Eyebrow + big title at the top of a scene ("1 · Inspiración").
+function topTitle(S, eyebrow, title, color, o = {}) {
+  const g = group();
+  text(g, 540, o.y ?? 230, eyebrow, { size: 30, weight: 800, color, ls: 4 });
+  text(g, 540, (o.y ?? 230) + 100, title, { ...SERIF, size: o.size ?? 84 });
+  el("rect", { x: 440, y: (o.y ?? 230) + 135, width: 200, height: 8, rx: 4, fill: color }, g);
+  show(g, o.at ?? sceneStart[S] + 0.1, o.until ?? sceneEnd[S] - 0.2, { dy: -20 });
+  return g;
+}
+
+// A full-width rounded card with a title and an optional sub-line, left aligned.
+function rowCard(parent, y, title, sub, color, o = {}) {
+  const g = group(parent);
+  const x = o.x ?? 110, w = o.w ?? 860, h = o.h ?? (sub ? 130 : 96);
+  el("rect", { x, y: y - h / 2, width: w, height: h, rx: 32, fill: o.fill ?? "rgba(255,255,255,0.05)", stroke: color, "stroke-width": 3 }, g);
+  let tx = x + 40;
+  if (o.badge !== undefined) {
+    el("circle", { cx: x + 62, cy: y, r: 34, fill: color }, g);
+    text(g, x + 62, y + 14, String(o.badge), { ...SERIF, size: 40, color: C.navy });
+    tx = x + 120;
+  }
+  text(g, tx, sub ? y - 8 : y + 14, title, { anchor: "start", ...SERIF, size: o.size ?? 42, color: o.titleColor ?? C.white });
+  if (sub) text(g, tx, y + 38, sub, { anchor: "start", size: o.subSize ?? 28, weight: 700, color: C.muted });
+  return g;
+}
+
+// A quotation in serif italic, with its reference in a chip below.
+function quoteBlock(parent, y, lines, ref, color, o = {}) {
+  const g = group(parent);
+  const size = o.size ?? 52, lh = size * 1.22;
+  text(g, 150, y - 10, "«", { ...SERIF, size: 150, color, anchor: "middle" });
+  lines.forEach((l, i) => text(g, 540, y + i * lh, l, { family: "Fraunces", weight: 600, italic: true, size, color: C.white }));
+  if (ref) chip(g, 540, y + lines.length * lh + 30, ref, { size: 30, fill: color });
+  return g;
+}
+
+function checkMark(parent, x, y, s, color) {
+  return el("path", { d: `M ${x - s} ${y} l ${s * 0.7} ${s * 0.7} l ${s * 1.4} -${s * 1.5}`, stroke: color, "stroke-width": s * 0.32, fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" }, parent);
+}
+
+function flame(parent, x, y, s, color = C.pre) {
+  const g = group(parent);
+  el("path", { d: `M ${x} ${y - s} C ${x + s * 0.7} ${y - s * 0.3} ${x + s * 0.65} ${y + s * 0.55} ${x} ${y + s * 0.7} C ${x - s * 0.65} ${y + s * 0.55} ${x - s * 0.7} ${y - s * 0.1} ${x - s * 0.15} ${y - s * 0.45} C ${x - s * 0.1} ${y - s * 0.1} ${x + s * 0.05} ${y} ${x} ${y - s} Z`, fill: color }, g);
+  el("path", { d: `M ${x} ${y - s * 0.15} C ${x + s * 0.3} ${y + s * 0.15} ${x + s * 0.25} ${y + s * 0.5} ${x} ${y + s * 0.58} C ${x - s * 0.25} ${y + s * 0.5} ${x - s * 0.3} ${y + s * 0.2} ${x} ${y - s * 0.15} Z`, fill: C.cream, opacity: 0.85 }, g);
+  return g;
+}
+function drop(parent, x, y, s, color = C.blue) {
+  return el("path", { d: `M ${x} ${y - s} C ${x + s * 0.2} ${y - s * 0.5} ${x + s * 0.65} ${y - s * 0.05} ${x + s * 0.65} ${y + s * 0.3} A ${s * 0.65} ${s * 0.65} 0 0 1 ${x - s * 0.65} ${y + s * 0.3} C ${x - s * 0.65} ${y - s * 0.05} ${x - s * 0.2} ${y - s * 0.5} ${x} ${y - s} Z`, fill: color }, parent);
+}
+function cup(parent, x, y, s, color = C.pre) {
+  const g = group(parent);
+  el("path", { d: `M ${x - s * 0.55} ${y - s * 0.6} H ${x + s * 0.55} C ${x + s * 0.55} ${y + s * 0.05} ${x + s * 0.25} ${y + s * 0.25} ${x} ${y + s * 0.25} C ${x - s * 0.25} ${y + s * 0.25} ${x - s * 0.55} ${y + s * 0.05} ${x - s * 0.55} ${y - s * 0.6} Z`, fill: color }, g);
+  el("rect", { x: x - s * 0.06, y: y + s * 0.2, width: s * 0.12, height: s * 0.45, fill: color }, g);
+  el("rect", { x: x - s * 0.35, y: y + s * 0.62, width: s * 0.7, height: s * 0.12, rx: s * 0.06, fill: color }, g);
+  return g;
+}
+function bread(parent, x, y, s, color = "#D9A35B") {
+  const g = group(parent);
+  el("rect", { x: x - s * 0.75, y: y - s * 0.35, width: s * 1.5, height: s * 0.75, rx: s * 0.35, fill: color }, g);
+  [-0.35, 0, 0.35].forEach((dx) => el("path", { d: `M ${x + dx * s - s * 0.1} ${y - s * 0.2} l ${s * 0.2} ${s * 0.3}`, stroke: "#B07A35", "stroke-width": s * 0.07, "stroke-linecap": "round" }, g));
+  return g;
+}
+function key(parent, x, y, s, color = C.pre) {
+  const g = group(parent);
+  el("circle", { cx: x - s * 0.55, cy: y, r: s * 0.32, fill: "none", stroke: color, "stroke-width": s * 0.13 }, g);
+  el("rect", { x: x - s * 0.25, y: y - s * 0.065, width: s * 1.05, height: s * 0.13, rx: s * 0.05, fill: color }, g);
+  el("rect", { x: x + s * 0.5, y: y, width: s * 0.13, height: s * 0.3, fill: color }, g);
+  el("rect", { x: x + s * 0.72, y: y, width: s * 0.13, height: s * 0.22, fill: color }, g);
+  return g;
+}
+function sunHills(parent, x, y, s) {
+  const g = group(parent);
+  el("circle", { cx: x + s * 0.35, cy: y - s * 0.35, r: s * 0.28, fill: C.pre }, g);
+  el("path", { d: `M ${x - s} ${y + s * 0.5} L ${x - s * 0.35} ${y - s * 0.15} L ${x + s * 0.1} ${y + s * 0.25} L ${x + s * 0.45} ${y - s * 0.02} L ${x + s} ${y + s * 0.5} Z`, fill: C.con }, g);
+  return g;
+}
+
+// Closing scene: emblem, a two-line statement and a final tagline.
+function endScene(l1, l2, tagline, o = {}) {
+  const g = group();
+  const emb = el("image", { href: "../../../assets/source/emblem.png", x: 540 - 100, y: 380, width: 200, height: 225 }, group(g));
+  show(emb.parentNode, cue("end.fade", 0.2), Infinity, { dy: 0, scale: 0.85, py: 490 });
+  const t = group(g);
+  text(t, 540, 770, l1, { ...SERIF, size: o.size ?? 80, color: C.white });
+  if (l2) text(t, 540, 865, l2, { ...SERIF, size: o.size ?? 80, color: o.color ?? C.pre });
+  show(t, cue("end.fade", 1.2), Infinity, { dy: 30 });
+  const s = group(g);
+  text(s, 540, 1040, tagline, { family: "Fraunces", weight: 600, italic: true, size: o.tagSize ?? 52, color: C.pre });
+  show(s, cue("end.next", 0.3), Infinity);
+  return g;
+}
+
+// Time at which the narrator reaches `needle` within the caption that has
+// cue `cueName` (linear in words), plus an optional offset.
+function wordCue(cueName, needle, off = 0) {
+  const c = SCRIPT.find((s) => s.cue === cueName);
+  if (!c) throw new Error("unknown cue " + cueName);
+  const plain = c.text.replace(/<[^>]+>/g, "");
+  const words = plain.split(/\s+/).filter(Boolean);
+  const before = plain.slice(0, plain.toLowerCase().indexOf(needle.toLowerCase())).split(/\s+/).filter(Boolean).length;
+  if (plain.toLowerCase().indexOf(needle.toLowerCase()) < 0) throw new Error(`"${needle}" not in ${cueName}`);
+  return c.start + (before / words.length) * c.dur + off;
+}
+
+// Stacked full-width cards that appear one by one.
+// items: [title, sub, color, cueName, needle?, badge?]
+function cardStack(S, y0, step, items, o = {}) {
+  const end = o.until ?? sceneEnd[S] - 0.2;
+  return items.map(([t, sub, color, c, needle, badge], i) => {
+    const g = group();
+    rowCard(g, y0 + i * step, t, sub, color, { x: o.x ?? 110, w: o.w ?? 860, badge, size: o.size ?? 40, h: o.h });
+    show(g, needle ? wordCue(c, needle) : cue(c, o.off ?? 0.2), end, { dy: 20 });
+    return g;
+  });
+}
+// A chip that pops in at a word (or cue).
+function popChip(S, x, y, label, fill, c, needle, o = {}) {
+  const k = group();
+  chip(k, x, y, label, { size: o.size ?? 30, fill, textColor: o.textColor });
+  show(k, needle ? wordCue(c, needle) : cue(c, o.off ?? 0.3), o.until ?? sceneEnd[S] - 0.2, { dy: 0, scale: 0.6, px: x, py: y });
+  return k;
+}
+// Two side-by-side panels (like the «need» scene of Las Santas Escrituras).
+function twoPanels(S, a, b) {
+  const end = sceneEnd[S] - 0.2;
+  [a, b].forEach((p, i) => {
+    const x = i ? 770 : 310, g = group();
+    el("rect", { x: x - 200, y: p.y ?? 520, width: 400, height: p.h ?? 420, rx: 40, fill: p.tint, stroke: p.color, "stroke-width": 3 }, g);
+    if (p.icon) p.icon(g, x, (p.y ?? 520) + 190);
+    text(g, x, (p.y ?? 520) + 330, p.title, { ...SERIF, size: p.size ?? 44 });
+    if (p.sub) text(g, x, (p.y ?? 520) + 375, p.sub, { size: 26, weight: 700, color: C.muted });
+    show(g, p.at, end, { dy: 30 });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Scene builders — «El pacto y las últimas cosas»
+// ---------------------------------------------------------------------------
+function tree(parent, x, y, s) {
+  const g = group(parent);
+  el("rect", { x: x - s * 0.08, y: y - s * 0.1, width: s * 0.16, height: s * 0.7, rx: 6, fill: "#8A6A45" }, g);
+  el("circle", { cx: x, cy: y - s * 0.35, r: s * 0.45, fill: C.con }, g);
+  [[-0.2, -0.45], [0.18, -0.25], [0.05, -0.6]].forEach(([dx, dy]) => el("circle", { cx: x + dx * s, cy: y + dy * s, r: s * 0.07, fill: C.epi }, g));
+  return g;
+}
+
+function buildIntro() {
+  introScene("intro", "TEOLOGÍA", "El pacto y", "las últimas cosas", [], { size: 84 });
+  popChip("intro", 540, 900, "Génesis  →  Apocalipsis", C.cream, "intro.q", "Génesis", { size: 34 });
+  popChip("intro", 540, 1000, "El pacto: así se relaciona Dios con el mundo", C.pre, "intro.pact", "pacto", { size: 30 });
+}
+
+function buildWorks() {
+  const S = "works", end = sceneEnd[S] - 0.2;
+  topTitle(S, "PACTO DE OBRAS · GÉNESIS 2", "Adán", C.epi);
+  const g = group();
+  tree(g, 400, 700, 260);
+  person(g, 700, 730, 150, C.cream);
+  show(g, cue("w.adam", 0.2), end, { dy: 20 });
+  popChip(S, 540, 940, "Vida por una obediencia perfecta", C.con, "w.adam", "vida", { size: 30 });
+  const x = group();
+  cross(x, 700, 700, 70, C.epi);
+  show(x, wordCue("w.adam", "desobedeció"), end, { dy: 0, scale: 0.3, px: 700, py: 700 });
+  popChip(S, 540, 1030, "Todos caímos con él", C.epi, "w.adam", "todos", { size: 30, textColor: C.white });
+  const n = group();
+  rowCard(n, 1190, "Nadie se salva", "por su propia obediencia", C.cream, { x: 160, w: 760 });
+  show(n, cue("w.none", 0.2), end, { dy: 20 });
+}
+
+function buildRed() {
+  const S = "red", end = sceneEnd[S] - 0.2;
+  topTitle(S, "PACTO DE REDENCIÓN Y DE GRACIA", "El último Adán", C.pre);
+  popChip(S, 540, 480, "Desde la eternidad: el Padre y el Hijo", C.pre, "r.eternal", "eternidad", { size: 30 });
+  popChip(S, 540, 570, "Génesis 3:15 · el protoevangelio", C.cream, "r.grace", "Génesis", { size: 30 });
+  // The exchange: his righteousness to us, our sins to him.
+  const g = group();
+  el("rect", { x: 140, y: 650, width: 300, height: 220, rx: 36, fill: "rgba(232,181,74,0.1)", stroke: C.pre, "stroke-width": 3 }, g);
+  el("rect", { x: 280, y: 690, width: 20, height: 110, fill: C.pre }, g);
+  el("rect", { x: 240, y: 720, width: 100, height: 20, fill: C.pre }, g);
+  text(g, 290, 845, "Cristo", { ...SERIF, size: 40, color: C.pre });
+  el("rect", { x: 640, y: 650, width: 300, height: 220, rx: 36, fill: "rgba(141,184,242,0.1)", stroke: C.blue, "stroke-width": 3 }, g);
+  [740, 840].forEach((px) => person(g, px, 760, 90, C.blue));
+  text(g, 790, 845, "nosotros", { ...SERIF, size: 40, color: C.blue });
+  show(g, cue("r.adam", 0.2), end, { dy: 20 });
+  const a1 = line(group(), 450, 710, 630, 710, C.pre, { width: 6, marker: "arrowGold" });
+  draw(a1, wordCue("r.adam", "su justicia"), 0.6, end);
+  const a2 = line(group(), 630, 810, 450, 810, C.epi, { width: 6, marker: "arrowRose" });
+  draw(a2, wordCue("r.adam", "nuestros pecados"), 0.6, end);
+  const l = group();
+  text(l, 540, 930, "su justicia → a nosotros · nuestros pecados → a él", { size: 28, weight: 800, color: C.muted });
+  show(l, wordCue("r.adam", "nuestros pecados", 0.6), end);
+  const f = group();
+  rowCard(f, 1130, "Por medio de la fe", "Cristo nos salva; la fe es un regalo", C.con, { x: 160, w: 760 });
+  show(f, cue("r.faith", 0.3), end, { dy: 20 });
+}
+
+function buildCov() {
+  const S = "cov", end = sceneEnd[S] - 0.2;
+  topTitle(S, "LOS PACTOS", "Una sola historia", C.con);
+  const names = ["Noé", "Abraham", "Moisés", "David", "Nuevo"];
+  const lineG = group();
+  el("path", { d: "M 140 600 L 940 600", stroke: "rgba(175,192,222,0.4)", "stroke-width": 5 }, lineG);
+  show(lineG, cue("c.list", 0.1), end, { dy: 0 });
+  names.forEach((n, i) => {
+    const x = 140 + i * 200, g = group();
+    el("circle", { cx: x, cy: 600, r: 26, fill: i === 4 ? C.pre : C.con }, g);
+    text(g, x, 670, n, { ...SERIF, size: 36, color: i === 4 ? C.pre : C.cream });
+    show(g, wordCue("c.list", n === "Nuevo" ? "nuevo pacto" : n), end, { dy: 0, scale: 0.4, px: x, py: 600 });
+  });
+  const q = quoteBlock(group(), 860, ["Yo seré su Dios,", "y ellos serán mi pueblo"], "Génesis 17 · Jeremías 32 · Apocalipsis 21", C.con, { size: 56 });
+  show(q, cue("c.promise", 0.3), end, { dy: 20 });
+  popChip(S, 540, 1150, "También el Dios de nuestros hijos", C.cream, "c.promise", "hijos", { size: 30 });
+}
+
+function buildEsc() {
+  const S = "esc", end = sceneEnd[S] - 0.2;
+  topTitle(S, "ESCATOLOGÍA", "Las últimas cosas", C.blue);
+  popChip(S, 540, 500, "Conocer el destino da sentido al presente", C.cream, "e.dest", "sentido", { size: 30 });
+  cardStack(S, 690, 190, [
+    ["El cuerpo vuelve al polvo", "pero el alma vive", C.muted, "e.death"],
+    ["Perfectos en santidad", "en la presencia de Dios · CFW 32", C.pre, "e.death", "creyentes"],
+  ]);
+  const s = group();
+  sunHills(s, 540, 1130, 110);
+  show(s, wordCue("e.death", "presencia"), end, { dy: 20 });
+}
+
+function buildRet() {
+  const S = "ret";
+  topTitle(S, "EL FIN DE LA HISTORIA", "Cristo vuelve", C.pre);
+  cardStack(S, 500, 175, [
+    ["El evangelio a las naciones", "antes del fin", C.con, "x.nations", null, 1],
+    ["Su regreso", "en persona, visible y en gloria", C.pre, "x.return", null, 2],
+    ["Resurrección y juicio", "Cristo juzgará al mundo", C.blue, "x.judge", null, 3],
+    ["Cielos nuevos y tierra nueva", "la consumación del reino", C.cream, "x.judge", "cielos", 4],
+  ]);
+  popChip(S, 540, 1250, "El milenio (Apocalipsis 20): varias interpretaciones", C.cream, "x.mil", null, { size: 28 });
+}
+
+function BUILD_ALL() {
+  buildIntro(); buildWorks(); buildRed(); buildCov(); buildEsc(); buildRet();
+  endScene("Yo seré su Dios,", "y ellos, mi pueblo", "Ven, Señor Jesús", { size: 72 });
+}
+
+// ---------------------------------------------------------------------------
+// Captions + progress bar
+// ---------------------------------------------------------------------------
+const capBox = document.getElementById("captions");
+const capEls = SCRIPT.map((c) => {
+  const d = document.createElement("div");
+  d.className = "cap";
+  d.innerHTML = `<span>${c.text}</span>`;
+  capBox.appendChild(d);
+  return d;
+});
+const capBand = el("rect", { x: 40, y: 1450, width: 1000, height: 340, rx: 44, fill: "rgba(10,17,36,0.45)" });
+const progressBg = el("rect", { x: 70, y: 1846, width: 940, height: 6, rx: 3, fill: "rgba(255,255,255,0.12)" });
+const progress = el("rect", { x: 70, y: 1846, width: 0, height: 6, rx: 3, fill: C.pre });
+
+function renderCaptions(t) {
+  SCRIPT.forEach((c, i) => {
+    const a = smooth((t - c.start + 0.1) / 0.25);
+    const next = SCRIPT[i + 1];
+    const until = next ? Math.min(next.start - 0.1, c.end + 1.2 + (c.hold || 0)) : c.end + 2.5;
+    const b = 1 - smooth((t - until) / 0.2);
+    capEls[i].style.opacity = Math.min(a, b);
+  });
+  progress.setAttribute("width", 940 * clamp(t / window.DURATION));
+}
+
+// ---------------------------------------------------------------------------
+// Load every face before measuring text (unused faces aren't loaded otherwise).
+const FACES = ["900 40px Fraunces", "700 40px Fraunces", "italic 600 40px Fraunces", "600 40px Manrope", "700 40px Manrope", "800 40px Manrope"];
+window.ready = Promise.all(FACES.map((f) => document.fonts.load(f))).then(() => document.fonts.ready).then(() => {
+  BUILD_ALL();
+  window.render(0);
+});
+window.render = (t) => {
+  anims.forEach((f) => f(t));
+  renderCaptions(t);
+};
+window.SCRIPT_TIMING = () => SCRIPT.map((c) => ({ start: c.start, end: c.end, text: c.text.replace(/<[^>]+>/g, ""), scene: c.scene }));
+</script>
+</body>
+</html>

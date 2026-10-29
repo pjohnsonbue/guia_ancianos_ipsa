@@ -95,7 +95,7 @@ export function darken(hex: string, amount = 0.16): string {
 }
 
 // Cached: darken() does HSL maths and is called for every pack card and
-// every Flashcard mount.
+// every reading cover.
 const packGradientCache = new Map<string, [string, string]>();
 
 export function packGradient(hex: string): [string, string] {

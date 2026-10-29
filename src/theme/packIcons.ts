@@ -1,24 +1,41 @@
-// A small decorative emoji mark per pack, shown on its Home-screen cover
-// card. Kept separate from the content model since it's purely visual.
-// Packs not listed fall back to 📘 (see PackCard).
+// A small decorative emoji per question pack, shown on its Home card.
+// Kept out of the spreadsheet (the xlsx reader mangles emoji) and out of
+// the content model since it's purely visual. Unlisted packs fall back to 📘.
 export const PACK_ICONS: Record<string, string> = {
   review: "🔁",
-  // Guía de liderazgo
   iglesia: "⛪",
+  anciano: "🤝",
   historia: "📜",
-  escrituras: "📖",
+  reforma: "🔥",
+  contexto: "🇦🇷",
   teologia: "🕊️",
+  cristo: "✝️",
+  pacto: "🌈",
   tarea: "🌍",
-  // Libro de orden
+  escrituras: "📖",
+  cfw1: "📖",
+  cfw6: "🍎",
+  cfw9: "🗝️",
+  cfw13: "🌱",
+  cfw17: "🛡️",
+  cfw21: "🙏",
+  cfw25: "🍞",
+  cfw30: "🏛️",
+  cfw32: "⏳",
+  cfw34: "🕊️",
   esenciales: "✝️",
-  gobierno: "🏛️",
-  disciplina: "⚖️",
-  adoracion: "🎶",
-  // Confesión de fe de Westminster
-  cfw1: "📕",
-  cfw2: "📗",
-  cfw3: "📘",
-  // Biblia
+  gob1: "⛪",
+  gob5: "👥",
+  gob10: "🙌",
+  gob16: "🏛️",
+  disc1: "⚖️",
+  disc2: "🤲",
+  disc5: "📋",
+  disc8: "🔍",
+  disc11: "🕊️",
+  ador1: "🎶",
+  ador3: "🍷",
+  ador4: "💍",
   pentateuco: "⛰️",
   historicos: "👑",
   sabiduria: "🪕",

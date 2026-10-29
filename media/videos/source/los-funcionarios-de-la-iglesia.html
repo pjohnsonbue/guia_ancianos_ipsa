@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<style>
+  @font-face { font-family: "Fraunces"; font-weight: 900; src: url("../../../node_modules/@expo-google-fonts/fraunces/900Black/Fraunces_900Black.ttf"); }
+  @font-face { font-family: "Fraunces"; font-weight: 700; src: url("../../../node_modules/@expo-google-fonts/fraunces/700Bold/Fraunces_700Bold.ttf"); }
+  @font-face { font-family: "Fraunces"; font-weight: 600; font-style: italic; src: url("../../../node_modules/@expo-google-fonts/fraunces/600SemiBold_Italic/Fraunces_600SemiBold_Italic.ttf"); }
+  @font-face { font-family: "Manrope"; font-weight: 600; src: url("../../../node_modules/@expo-google-fonts/manrope/600SemiBold/Manrope_600SemiBold.ttf"); }
+  @font-face { font-family: "Manrope"; font-weight: 700; src: url("../../../node_modules/@expo-google-fonts/manrope/700Bold/Manrope_700Bold.ttf"); }
+  @font-face { font-family: "Manrope"; font-weight: 800; src: url("../../../node_modules/@expo-google-fonts/manrope/800ExtraBold/Manrope_800ExtraBold.ttf"); }
+  html, body { margin: 0; padding: 0; width: 1080px; height: 1920px; overflow: hidden; background: #1A2B51; }
+  #stage { position: absolute; inset: 0; }
+  svg { position: absolute; inset: 0; }
+  #captions { position: absolute; left: 70px; right: 70px; top: 1470px; height: 300px; }
+  .cap {
+    position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    font-family: "Manrope"; font-weight: 700; font-size: 50px; line-height: 1.32; color: #FFFFFF;
+    opacity: 0;
+  }
+  .cap em { font-style: normal; color: #F2C66A; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <svg id="svg" width="1080" height="1920" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#24396D" />
+        <stop offset="1" stop-color="#131E3B" />
+      </linearGradient>
+      <radialGradient id="glow" cx="0.5" cy="0.35" r="0.6">
+        <stop offset="0" stop-color="#3A5596" stop-opacity="0.55" />
+        <stop offset="1" stop-color="#3A5596" stop-opacity="0" />
+      </radialGradient>
+      <marker id="arrowGold" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#E8B54A" />
+      </marker>
+      <marker id="arrowBlue" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#8DB8F2" />
+      </marker>
+      <marker id="arrowRose" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#E06B7D" />
+      </marker>
+    </defs>
+    <rect width="1080" height="1920" fill="url(#bg)" />
+    <rect width="1080" height="1920" fill="url(#glow)" />
+    <g id="root"></g>
+  </svg>
+  <div id="captions"></div>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Palette + helpers
+// ---------------------------------------------------------------------------
+const C = {
+  navy: "#1A2B51", cream: "#F8F5EF", white: "#FFFFFF", muted: "#AFC0DE",
+  epi: "#E06B7D", con: "#4CC38A", pre: "#E8B54A", blue: "#8DB8F2",
+};
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const smooth = (x) => { x = clamp(x); return x * x * (3 - 2 * x); };
+const easeOut = (x) => 1 - Math.pow(1 - clamp(x), 3);
+const NS = "http://www.w3.org/2000/svg";
+const root = document.getElementById("root");
+
+function el(tag, attrs = {}, parent = root) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  parent.appendChild(e);
+  return e;
+}
+function group(parent = root, attrs = {}) { return el("g", attrs, parent); }
+function text(parent, x, y, str, o = {}) {
+  const t = el("text", {
+    x, y, "text-anchor": o.anchor || "middle",
+    "font-family": o.family || "Manrope", "font-weight": o.weight || 700,
+    "font-size": o.size || 34, fill: o.color || C.white,
+    ...(o.italic ? { "font-style": "italic" } : {}),
+    ...(o.ls ? { "letter-spacing": o.ls } : {}),
+  }, parent);
+  t.textContent = str;
+  return t;
+}
+// Pill-shaped label, centred on (x, y).
+function chip(parent, x, y, str, o = {}) {
+  const g = group(parent);
+  const size = o.size || 32;
+  const t = text(g, x, y + size * 0.36, str, { size, weight: 800, color: o.textColor || C.navy });
+  const w = t.getComputedTextLength() + size * 1.4;
+  const h = size * 1.75;
+  const r = el("rect", { x: x - w / 2, y: y - h / 2, width: w, height: h, rx: h / 2,
+    fill: o.fill || C.cream, stroke: o.stroke || "none", "stroke-width": o.stroke ? 3 : 0 }, g);
+  g.insertBefore(r, t);
+  return g;
+}
+function person(parent, x, y, s, color) {
+  const g = group(parent);
+  el("circle", { cx: x, cy: y - s * 0.52, r: s * 0.3, fill: color }, g);
+  el("path", { d: `M ${x - s * 0.5} ${y + s * 0.55} V ${y + s * 0.12} a ${s * 0.5} ${s * 0.42} 0 0 1 ${s} 0 V ${y + s * 0.55} Z`, fill: color }, g);
+  return g;
+}
+function church(parent, x, y, s, color, door = C.navy) {
+  const g = group(parent);
+  // cross
+  el("rect", { x: x - s * 0.04, y: y - s * 0.98, width: s * 0.08, height: s * 0.34, fill: color }, g);
+  el("rect", { x: x - s * 0.13, y: y - s * 0.88, width: s * 0.26, height: s * 0.075, fill: color }, g);
+  // roof + body
+  el("path", { d: `M ${x - s * 0.62} ${y - s * 0.1} L ${x} ${y - s * 0.64} L ${x + s * 0.62} ${y - s * 0.1} Z`, fill: color }, g);
+  el("rect", { x: x - s * 0.48, y: y - s * 0.16, width: s * 0.96, height: s * 0.72, fill: color }, g);
+  el("path", { d: `M ${x - s * 0.13} ${y + s * 0.56} V ${y + s * 0.2} a ${s * 0.13} ${s * 0.13} 0 0 1 ${s * 0.26} 0 V ${y + s * 0.56} Z`, fill: door }, g);
+  return g;
+}
+function line(parent, x1, y1, x2, y2, color, o = {}) {
+  return el("path", {
+    d: `M ${x1} ${y1} L ${x2} ${y2}`, stroke: color, "stroke-width": o.width || 5,
+    "stroke-linecap": "round", fill: "none", pathLength: 1,
+    ...(o.marker ? { "marker-end": `url(#${o.marker})` } : {}),
+  }, parent);
+}
+function book(parent, x, y, w, h, color, label) {
+  const g = group(parent);
+  el("rect", { x: x - w / 2, y: y - h / 2, width: w, height: h, rx: 10, fill: color }, g);
+  el("rect", { x: x - w / 2, y: y - h / 2, width: w * 0.12, height: h, rx: 6, fill: "rgba(0,0,0,0.18)" }, g);
+  el("rect", { x: x - w * 0.28, y: y - h * 0.3, width: w * 0.66, height: 6, rx: 3, fill: "rgba(255,255,255,0.75)" }, g);
+  el("rect", { x: x - w * 0.28, y: y - h * 0.2, width: w * 0.5, height: 6, rx: 3, fill: "rgba(255,255,255,0.55)" }, g);
+  if (label) label.forEach((l, i) => text(g, x, y + h / 2 + 52 + i * 40, l, { size: 32, weight: 800 }));
+  return g;
+}
+function openBible(parent, x, y, s) {
+  const g = group(parent);
+  el("path", { d: `M ${x} ${y - s * 0.32} C ${x - s * 0.35} ${y - s * 0.45} ${x - s * 0.8} ${y - s * 0.42} ${x - s} ${y - s * 0.32} V ${y + s * 0.38} C ${x - s * 0.8} ${y + s * 0.28} ${x - s * 0.35} ${y + s * 0.3} ${x} ${y + s * 0.42} Z`, fill: C.cream }, g);
+  el("path", { d: `M ${x} ${y - s * 0.32} C ${x + s * 0.35} ${y - s * 0.45} ${x + s * 0.8} ${y - s * 0.42} ${x + s} ${y - s * 0.32} V ${y + s * 0.38} C ${x + s * 0.8} ${y + s * 0.28} ${x + s * 0.35} ${y + s * 0.3} ${x} ${y + s * 0.42} Z`, fill: "#EFE9DE" }, g);
+  el("rect", { x: x - s * 0.03, y: y - s * 0.34, width: s * 0.06, height: s * 0.78, fill: "#D9CFBC" }, g);
+  for (let i = 0; i < 4; i++) {
+    el("rect", { x: x - s * 0.82, y: y - s * 0.18 + i * s * 0.13, width: s * 0.6, height: 5, rx: 2.5, fill: "#B9AE98" }, g);
+    el("rect", { x: x + s * 0.22, y: y - s * 0.18 + i * s * 0.13, width: s * 0.6, height: 5, rx: 2.5, fill: "#B9AE98" }, g);
+  }
+  // cross above
+  el("rect", { x: x - 5, y: y - s * 0.95, width: 10, height: s * 0.42, fill: C.pre }, g);
+  el("rect", { x: x - s * 0.13, y: y - s * 0.85, width: s * 0.26, height: 10, fill: C.pre }, g);
+  return g;
+}
+// Mini icons used in the intro and the summary.
+function miniPyramid(parent, x, y, s) {
+  const g = group(parent);
+  el("path", { d: `M ${x} ${y - s} L ${x + s} ${y + s * 0.75} L ${x - s} ${y + s * 0.75} Z`, fill: "none", stroke: C.epi, "stroke-width": 6, "stroke-linejoin": "round" }, g);
+  person(g, x, y - s * 0.35, s * 0.32, C.epi);
+  [-0.5, 0, 0.5].forEach((dx) => person(g, x + dx * s, y + s * 0.42, s * 0.24, C.epi));
+  return g;
+}
+function miniIslands(parent, x, y, s) {
+  const g = group(parent);
+  [[-0.5, -0.45], [0.5, -0.45], [-0.5, 0.5], [0.5, 0.5]].forEach(([dx, dy]) => {
+    el("circle", { cx: x + dx * s, cy: y + dy * s, r: s * 0.38, fill: "none", stroke: C.con, "stroke-width": 5 }, g);
+    church(g, x + dx * s, y + dy * s + s * 0.08, s * 0.32, C.con);
+  });
+  return g;
+}
+function miniNetwork(parent, x, y, s) {
+  const g = group(parent);
+  el("rect", { x: x - s * 0.55, y: y - s * 0.95, width: s * 1.1, height: s * 0.45, rx: 12, fill: "none", stroke: C.pre, "stroke-width": 5 }, g);
+  [-0.7, 0, 0.7].forEach((dx) => {
+    line(g, x + dx * s, y + s * 0.3, x + dx * s * 0.45, y - s * 0.5, C.pre, { width: 4 });
+    church(g, x + dx * s, y + s * 0.62, s * 0.34, C.pre);
+  });
+  [-0.3, 0, 0.3].forEach((dx) => person(g, x + dx * s, y - s * 0.72, s * 0.17, C.pre));
+  return g;
+}
+
+// ---------------------------------------------------------------------------
+// Script: caption chunks (what the narrator says), grouped by scene.
+// Sources: Libro de gobierno §10-1 a §10-8 (cargos, vida y tareas), §11-1,
+// §11-5, §11-14, §12-3, §13-1 (llamado, elección, preparación y examen);
+// Guía de liderazgo: «Los requisitos bíblicos acerca de la vida y el
+// carácter del anciano», «La representación en el gobierno presbiteriano».
+// ---------------------------------------------------------------------------
+const SCRIPT = [
+  { scene: "intro", text: "Jesucristo, Señor de la iglesia, le dio tres cargos:", cue: "intro.q" },
+  { scene: "intro", text: "ministros de la Palabra, presbíteros gobernantes y diáconos.", cue: "intro.three" },
+  { scene: "intro", text: "No son un rango de preeminencia, sino un llamado al servicio.", cue: "intro.service", hold: 0.4 },
+
+  { scene: "min", text: "El <em>ministro de la Palabra</em>, o presbítero maestro, fue considerado históricamente el primer cargo de la iglesia.", cue: "min.title" },
+  { scene: "min", text: "Debe ser firme en la fe, apto para enseñar y estar bien preparado.", cue: "min.req" },
+  { scene: "min", text: "Como <em>pastor</em>, predica la Palabra, guía la adoración, celebra los sacramentos y supervisa la formación.", cue: "min.pastor" },
+  { scene: "min", text: "Como <em>maestro</em>, enseña en un seminario o una universidad, sin dejar de pastorear a sus alumnos.", cue: "min.teacher", hold: 0.3 },
+
+  { scene: "anc", text: "El <em>presbítero gobernante</em> vela por el bienestar espiritual de la congregación.", cue: "anc.title" },
+  { scene: "anc", text: "Comparte con el pastor la autoridad en todas las cortes: juntos, son los «presbíteros».", cue: "anc.share", hold: 0.3 },
+
+  { scene: "dia", text: "El <em>diácono</em> tiene un ministerio de compasión y servicio: es el instrumento de la iglesia para la misericordia.", cue: "dia.title" },
+  { scene: "dia", text: "Debe ser juicioso, confiable, estimado por todos, y no un neófito en la fe.", cue: "dia.life" },
+  { scene: "dia", text: "La Junta de Diáconos no es una corte: está bajo la autoridad del Consistorio.", cue: "dia.board", hold: 0.3 },
+
+  { scene: "ele", text: "¿Cómo se eligen? Es Dios quien llama, y su llamado se confirma de tres maneras:", cue: "ele.title" },
+  { scene: "ele", text: "el llamado interior, el llamado de una iglesia y la aprobación de una corte.", cue: "ele.three" },
+  { scene: "ele", text: "A ancianos y diáconos los elige la congregación; el Consistorio los prepara y los examina.", cue: "ele.ad" },
+  { scene: "ele", text: "Al pastor lo propone un comité de búsqueda, la congregación lo vota y el Presbiterio aprueba el llamado.", cue: "ele.pastor", hold: 0.4 },
+
+  { scene: "foc", text: "Ahora, el <em>anciano</em>. Primero, su carácter:", cue: "foc.title" },
+  { scene: "foc", text: "irreprochable, firme en la fe, sabio en las cosas de Dios y discreto en todo;", cue: "foc.char" },
+  { scene: "foc", text: "templado, sincero, no amante del dinero, hospitalario, lleno del Espíritu, ejemplo para el rebaño.", cue: "foc.char2", hold: 0.3 },
+  { scene: "foc", text: "Sus tareas: estudiar la Palabra para poder enseñarla, guiar la adoración y la oración,", cue: "foc.task1" },
+  { scene: "foc", text: "visitar a los enfermos y a los que sufren, cuidar a los niños y a los nuevos miembros,", cue: "foc.task2" },
+  { scene: "foc", text: "y buscar con amor a los que se apartan.", cue: "foc.task3", hold: 0.3 },
+  { scene: "foc", text: "En las cortes no vota según encuestas: representa la voluntad de Cristo, según su conciencia.", cue: "foc.rep" },
+  { scene: "foc", text: "Es, como dice el Libro de Orden, un «pastor subalterno».", cue: "foc.sub", hold: 0.5 },
+
+  { scene: "end", text: "Tres cargos, un mismo Señor, y un mismo llamado: servir.", cue: "end.call", hold: 1.0 },
+];
+
+// Timing: ~2.55 words per second (an unhurried narration pace), plus a short
+// breath between chunks and a longer pause at each scene change.
+const WPS = 2.55, GAP = 0.35, SCENE_GAP = 0.9, START = 0.8, TAIL = 4.0;
+const cues = {}, sceneStart = {}, sceneEnd = {};
+{
+  let t = START, prevScene = null;
+  for (const c of SCRIPT) {
+    if (prevScene && c.scene !== prevScene) { sceneEnd[prevScene] = t; t += SCENE_GAP; }
+    if (!(c.scene in sceneStart)) sceneStart[c.scene] = t - (prevScene ? SCENE_GAP * 0.6 : START);
+    const words = c.text.replace(/<[^>]+>/g, "").split(/\s+/).filter(Boolean).length;
+    c.start = t;
+    c.dur = Math.max(1.6, words / WPS);
+    c.end = t + c.dur;
+    if (c.cue) cues[c.cue] = t;
+    t = c.end + GAP + (c.hold || 0);
+    prevScene = c.scene;
+  }
+  sceneEnd[prevScene] = t + TAIL;
+  window.DURATION = t + TAIL;
+}
+const cue = (name, offset = 0) => cues[name] + offset;
+
+// ---------------------------------------------------------------------------
+// Animation registry
+// ---------------------------------------------------------------------------
+const anims = [];
+// Fade/slide an element in at `tin` and out at `tout`.
+function show(node, tin, tout = Infinity, o = {}) {
+  const dur = o.dur || 0.6, dy = o.dy ?? 26, sc = o.scale ?? 1, px = o.px ?? 540, py = o.py ?? 960;
+  anims.push((t) => {
+    const a = easeOut((t - tin) / dur);
+    const b = 1 - smooth((t - tout) / 0.45);
+    const op = Math.min(a, b) * (o.opacity ?? 1);
+    node.style.opacity = op;
+    if (op <= 0) { node.style.display = "none"; return; }
+    node.style.display = "";
+    const s = sc + (1 - sc) * a;
+    const extra = o.extra ? o.extra(t) : "";
+    node.setAttribute("transform", `${extra} translate(0 ${(1 - a) * dy}) translate(${px} ${py}) scale(${s}) translate(${-px} ${-py})`);
+  });
+  return node;
+}
+// Draw a path (pathLength=1) from tin over dur seconds.
+function draw(path, tin, dur = 0.7, tout = Infinity) {
+  path.setAttribute("stroke-dasharray", "1 1");
+  const marker = path.getAttribute("marker-end");
+  anims.push((t) => {
+    const p = easeOut((t - tin) / dur);
+    path.setAttribute("stroke-dashoffset", 1 - p);
+    // The arrowhead only appears once the line has reached it.
+    if (marker) { if (p > 0.92) path.setAttribute("marker-end", marker); else path.removeAttribute("marker-end"); }
+    path.style.opacity = (p > 0 ? 1 : 0) * (1 - smooth((t - tout) / 0.45));
+  });
+  return path;
+}
+// Dots that keep travelling along a segment, from tin until tout.
+function flow(parent, x1, y1, x2, y2, color, tin, tout, o = {}) {
+  const n = o.n || 2, period = o.period || 1.6, r = o.r || 9;
+  const dots = Array.from({ length: n }, () => el("circle", { r, fill: color }, parent));
+  anims.push((t) => {
+    const vis = smooth((t - tin) / 0.4) * (1 - smooth((t - tout) / 0.4));
+    dots.forEach((d, i) => {
+      const p = (((t - tin) / period + i / n) % 1 + 1) % 1;
+      d.setAttribute("cx", x1 + (x2 - x1) * p);
+      d.setAttribute("cy", y1 + (y2 - y1) * p);
+      d.style.opacity = vis * Math.sin(Math.PI * p);
+    });
+  });
+}
+// Re-colour an element's fills between two colours at time tin.
+function recolor(node, from, to, tin, dur = 0.5) {
+  const parse = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const A = parse(from), B = parse(to);
+  const shapes = node.querySelectorAll("circle, path, rect");
+  anims.push((t) => {
+    const p = smooth((t - tin) / dur);
+    const c = A.map((v, i) => Math.round(v + (B[i] - v) * p));
+    shapes.forEach((s) => s.setAttribute("fill", `rgb(${c.join(",")})`));
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Scene builders
+// ---------------------------------------------------------------------------
+function header(scene, eyebrow, title, color, size = 88) {
+  const g = group();
+  text(g, 540, 200, eyebrow, { size: 30, weight: 800, color: C.muted, ls: 4 });
+  text(g, 540, 300, title, { family: "Fraunces", weight: 900, size, color: C.white });
+  el("rect", { x: 440, y: 335, width: 200, height: 8, rx: 4, fill: color }, g);
+  show(g, sceneStart[scene] + 0.1, sceneEnd[scene] - 0.2, { dy: -20 });
+}
+function heart(parent, x, y, s, color) {
+  return el("path", { d: `M ${x} ${y + s * 0.35} C ${x - s * 0.9} ${y - s * 0.25} ${x - s * 0.45} ${y - s * 0.85} ${x} ${y - s * 0.4} C ${x + s * 0.45} ${y - s * 0.85} ${x + s * 0.9} ${y - s * 0.25} ${x} ${y + s * 0.35} Z`, fill: color }, parent);
+}
+function minister(parent, x, y, s) {
+  const g = group(parent);
+  person(g, x, y, s, C.blue);
+  book(g, x + s * 0.55, y + s * 0.35, s * 0.42, s * 0.52, C.cream);
+  return g;
+}
+function deacon(parent, x, y, s) {
+  const g = group(parent);
+  person(g, x, y, s, C.con);
+  el("circle", { cx: x + s * 0.55, cy: y + s * 0.3, r: s * 0.3, fill: C.navy }, g);
+  heart(g, x + s * 0.55, y + s * 0.33, s * 0.32, "#F2A3B0");
+  return g;
+}
+function elder(parent, x, y, s) {
+  const g = group(parent);
+  person(g, x, y, s, C.pre);
+  return g;
+}
+function row(parent, y, label, color, o = {}) {
+  const g = group(parent);
+  el("rect", { x: 110, y: y - 44, width: 860, height: 88, rx: 44, fill: "rgba(248,245,239,0.06)", stroke: color, "stroke-opacity": 0.6, "stroke-width": 3 }, g);
+  el("circle", { cx: 158, cy: y, r: 30, fill: color }, g);
+  if (o.num) text(g, 158, y + 12, o.num, { family: "Fraunces", weight: 900, size: 36, color: C.navy });
+  text(g, 210, y + 12, label, { anchor: "start", size: o.size || 36, weight: 800, color: C.cream });
+  return g;
+}
+
+function buildIntro() {
+  const S = "intro", end = sceneEnd[S] - 0.2;
+  const emb = el("image", { href: "../../../assets/source/emblem.png", x: 540 - 75, y: 300, width: 150, height: 169 }, group());
+  show(emb.parentNode, sceneStart[S], end, { dy: 0, scale: 0.9, py: 385 });
+  const t1 = group();
+  text(t1, 540, 640, "Los funcionarios", { family: "Fraunces", weight: 900, size: 100 });
+  text(t1, 540, 755, "de la iglesia", { family: "Fraunces", weight: 900, size: 100 });
+  show(t1, cue("intro.q"), end, { dy: 30 });
+  const items = [[minister, 230, "Ministro", "de la Palabra", C.blue], [elder, 540, "Presbítero", "gobernante", C.pre], [deacon, 850, "Diácono", "", C.con]];
+  items.forEach(([fn, x, l1, l2, col], i) => {
+    const g = group();
+    fn(g, x, 1050, 130);
+    text(g, x, 1215, l1, { size: 36, weight: 800, color: col });
+    if (l2) text(g, x, 1258, l2, { size: 36, weight: 800, color: col });
+    show(g, cue("intro.three", 0.3 + i * 1.2), end, { dy: 40, scale: 0.8, px: x, py: 1050 });
+  });
+  const svc = group();
+  chip(svc, 540, 1350, "Un llamado al servicio", { size: 32, fill: C.cream });
+  show(svc, cue("intro.service", 1.0), end);
+}
+
+function buildMinister() {
+  const S = "min", end = sceneEnd[S] - 0.2;
+  header(S, "CARGO 1 · PRESBÍTERO MAESTRO", "El ministro", C.blue);
+  const g = group();
+  const m = group(g);
+  minister(m, 540, 560, 170);
+  show(m, cue("min.title", 0.3), cue("min.pastor"), { dy: 0, scale: 0.7, py: 560 });
+  const first = group(g);
+  chip(first, 540, 760, "El primer cargo de la iglesia", { size: 30, fill: "#CFE0F7" });
+  show(first, cue("min.title", 2.5), cue("min.pastor"));
+  ["Firme en la fe", "Apto para enseñar", "Bien preparado"].forEach((r, i) => {
+    const c = group(g);
+    row(c, 880 + i * 112, r, C.blue, { num: "✓" });
+    show(c, cue("min.req", 0.4 + i * 0.8), cue("min.pastor"), { dy: 30 });
+  });
+  // Pastor and teacher cards.
+  const card = (x, title, lines, c, off) => {
+    const k = group(g);
+    el("rect", { x: x - 225, y: 420, width: 450, height: 880, rx: 40, fill: "rgba(141,184,242,0.08)", stroke: C.blue, "stroke-width": 4 }, k);
+    minister(k, x, 560, 110);
+    text(k, x, 720, title, { family: "Fraunces", weight: 900, size: 54, color: C.blue });
+    lines.forEach((l, i) => {
+      el("circle", { cx: x - 175, cy: 800 + i * 92 - 12, r: 9, fill: C.blue }, k);
+      text(k, x - 150, 800 + i * 92, l, { anchor: "start", size: 32, weight: 700, color: C.cream });
+    });
+    show(k, cue(c, off), end, { dy: 40 });
+  };
+  card(295, "Pastor", ["Predica la Palabra", "Guía la adoración", "Sacramentos", "Formación"], "min.pastor", 0.2);
+  card(785, "Maestro", ["Seminario", "Universidad", "Planta la Palabra", "Cuida a sus alumnos"], "min.teacher", 0.2);
+}
+
+function buildElder() {
+  const S = "anc", end = sceneEnd[S] - 0.2;
+  header(S, "CARGO 2", "Presbítero gobernante", C.pre, 72);
+  const g = group();
+  const e = group(g);
+  elder(e, 540, 590, 190);
+  show(e, cue("anc.title", 0.2), cue("anc.share"), { dy: 0, scale: 0.7, py: 590 });
+  const cong = group(g);
+  [-3, -2, -1, 0, 1, 2, 3].forEach((k) => person(cong, 540 + k * 110, 1080, 70, C.cream));
+  el("path", { d: "M 160 1180 Q 540 1240 920 1180", stroke: C.muted, "stroke-width": 3, fill: "none" }, cong);
+  text(cong, 540, 1280, "Bienestar espiritual de la congregación", { size: 32, weight: 800, color: C.muted });
+  show(cong, cue("anc.title", 1.2), cue("anc.share"), { dy: 30 });
+  const eye = draw(line(g, 540, 800, 540, 960, C.pre, { width: 6, marker: "arrowGold" }), cue("anc.title", 1.6), 0.6, cue("anc.share"));
+  // Teaching + ruling elders, together "presbíteros".
+  const pair = group(g);
+  minister(pair, 360, 700, 160);
+  elder(pair, 720, 700, 160);
+  text(pair, 360, 880, "Presbítero", { size: 34, weight: 800, color: C.blue });
+  text(pair, 360, 920, "maestro", { size: 34, weight: 800, color: C.blue });
+  text(pair, 720, 880, "Presbítero", { size: 34, weight: 800, color: C.pre });
+  text(pair, 720, 920, "gobernante", { size: 34, weight: 800, color: C.pre });
+  el("path", { d: "M 230 990 Q 230 1040 290 1040 H 790 Q 850 1040 850 990", stroke: C.cream, "stroke-width": 5, fill: "none" }, pair);
+  text(pair, 540, 1120, "«Presbíteros»", { family: "Fraunces", weight: 900, size: 64, color: C.cream });
+  show(pair, cue("anc.share", 0.2), end, { dy: 30 });
+  const all = group(g);
+  chip(all, 540, 1240, "Autoridad compartida en todas las cortes", { size: 30, fill: C.pre });
+  show(all, cue("anc.share", 1.6), end);
+}
+
+function buildDeacon() {
+  const S = "dia", end = sceneEnd[S] - 0.2;
+  header(S, "CARGO 3", "El diácono", C.con);
+  const g = group();
+  const d = group(g);
+  deacon(d, 540, 560, 180);
+  show(d, cue("dia.title", 0.2), end, { dy: 0, scale: 0.7, py: 560 });
+  [["Compasión", 260], ["Servicio", 540], ["Misericordia", 820]].forEach(([w, x], i) => {
+    const c = group(g);
+    chip(c, x, 790, w, { size: 32, fill: C.con });
+    show(c, cue("dia.title", 1.0 + i * 1.3), end, { dy: 20 });
+  });
+  const life = group(g);
+  ["Juicioso", "Confiable", "Estimado por todos", "No un neófito"].forEach((w, i) => {
+    row(life, 920 + i * 105, w, C.con, { num: "✓", size: 34 });
+  });
+  show(life, cue("dia.life", 0.2), cue("dia.board"), { dy: 30 });
+  const cons = group(g);
+  el("rect", { x: 270, y: 900, width: 540, height: 110, rx: 30, fill: "rgba(232,181,74,0.1)", stroke: C.pre, "stroke-width": 5 }, cons);
+  text(cons, 540, 968, "Consistorio", { family: "Fraunces", weight: 900, size: 46, color: C.pre });
+  show(cons, cue("dia.board", 0.2), end, { dy: -20 });
+  draw(line(g, 540, 1015, 540, 1110, C.pre, { width: 6, marker: "arrowGold" }), cue("dia.board", 0.8), 0.5, end);
+  const junta = group(g);
+  el("rect", { x: 270, y: 1120, width: 540, height: 110, rx: 30, fill: "rgba(76,195,138,0.1)", stroke: C.con, "stroke-width": 5 }, junta);
+  text(junta, 540, 1188, "Junta de Diáconos", { family: "Fraunces", weight: 900, size: 44, color: C.con });
+  show(junta, cue("dia.board", 0.5), end, { dy: 20 });
+  const nc = group(g);
+  chip(nc, 540, 1320, "No es una corte", { size: 30, fill: C.cream });
+  show(nc, cue("dia.board", 1.4), end);
+}
+
+function buildElection() {
+  const S = "ele", end = sceneEnd[S] - 0.2;
+  header(S, "LLAMADO Y ELECCIÓN", "¿Cómo se eligen?", C.cream);
+  const g = group();
+  const stepsOut = cue("ele.ad");
+  const steps = [["Llamado interior", "La persona testifica que Dios la llamó"], ["Llamado de una iglesia", "Una congregación o corte la llama"], ["Aprobación de una corte", "La corte confirma el llamado"]];
+  steps.forEach(([t1, t2], i) => {
+    const y = 520 + i * 250;
+    const s = group(g);
+    el("rect", { x: 110, y: y - 90, width: 860, height: 180, rx: 40, fill: "rgba(248,245,239,0.06)", stroke: C.pre, "stroke-width": 4 }, s);
+    el("circle", { cx: 200, cy: y, r: 50, fill: C.pre }, s);
+    text(s, 200, y + 20, String(i + 1), { family: "Fraunces", weight: 900, size: 58, color: C.navy });
+    text(s, 280, y - 8, t1, { anchor: "start", family: "Fraunces", weight: 900, size: 46, color: C.cream });
+    text(s, 280, y + 46, t2, { anchor: "start", size: 30, weight: 700, color: C.muted });
+    show(s, cue("ele.three", 0.2 + i * 1.4), stepsOut, { dy: 30 });
+    if (i < 2) draw(line(g, 540, y + 95, 540, y + 150, C.pre, { width: 5, marker: "arrowGold" }), cue("ele.three", 0.9 + i * 1.4), 0.4, stepsOut);
+  });
+  const god = group(g);
+  chip(god, 540, 400, "Es Dios quien llama", { size: 30, fill: C.pre });
+  show(god, cue("ele.title", 1.6), stepsOut, { dy: -12 });
+  // Two paths.
+  const col = (x, title, items, color, c) => {
+    const k = group(g);
+    el("rect", { x: x - 225, y: 410, width: 450, height: 960, rx: 40, fill: "rgba(248,245,239,0.05)", stroke: color, "stroke-width": 4 }, k);
+    text(k, x, 490, title[0], { family: "Fraunces", weight: 900, size: 44, color });
+    if (title[1]) text(k, x, 540, title[1], { family: "Fraunces", weight: 900, size: 44, color });
+    show(k, cue(c, 0.1), end, { dy: 30 });
+    items.forEach(([who, what], i) => {
+      const y = 680 + i * 230;
+      const b = group(g);
+      el("rect", { x: x - 190, y: y - 70, width: 380, height: 150, rx: 28, fill: color }, b);
+      text(b, x, y - 8, who, { size: 34, weight: 800, color: C.navy });
+      text(b, x, y + 40, what, { size: 30, weight: 700, color: C.navy });
+      show(b, cue(c, 0.8 + i * 1.1), end, { dy: 30 });
+      if (i < items.length - 1) draw(line(g, x, y + 85, x, y + 150, C.cream, { width: 5 }), cue(c, 1.4 + i * 1.1), 0.4, end);
+    });
+  };
+  col(295, ["Ancianos", "y diáconos"], [["Congregación", "los elige"], ["Consistorio", "los prepara"], ["Consistorio", "los examina"]], C.pre, "ele.ad");
+  col(785, ["Pastor", ""], [["Comité de búsqueda", "lo propone"], ["Congregación", "vota"], ["Presbiterio", "aprueba"]], C.blue, "ele.pastor");
+}
+
+function buildFocus() {
+  const S = "foc", end = sceneEnd[S] - 0.2;
+  header(S, "FOCO", "El anciano", C.pre);
+  const g = group();
+  // --- character -----------------------------------------------------------
+  const chOut = cue("foc.task1");
+  const e = group(g);
+  elder(e, 540, 560, 150);
+  text(e, 540, 700, "Carácter", { family: "Fraunces", weight: 900, size: 50, color: C.pre });
+  show(e, cue("foc.title", 1.0), chOut, { dy: 0, scale: 0.7, py: 560 });
+  const traits = [
+    ["Irreprochable", 300, 800, "foc.char", 0.2], ["Firme en la fe", 780, 800, "foc.char", 1.0],
+    ["Sabio en las cosas de Dios", 540, 880, "foc.char", 1.8], ["Discreto en todo", 540, 960, "foc.char", 2.8],
+    ["Templado", 230, 1060, "foc.char2", 0.2], ["Sincero", 470, 1060, "foc.char2", 0.7], ["No amante del dinero", 790, 1060, "foc.char2", 1.2],
+    ["Hospitalario", 260, 1150, "foc.char2", 2.0], ["Lleno del Espíritu", 650, 1150, "foc.char2", 2.6],
+    ["Ejemplo para el rebaño", 540, 1240, "foc.char2", 3.3],
+  ];
+  traits.forEach(([w, x, y, c, off]) => {
+    const t = group(g);
+    chip(t, x, y, w, { size: 30, fill: c === "foc.char" ? C.pre : C.cream });
+    show(t, cue(c, off), chOut, { dy: 20, scale: 0.85, px: x, py: y });
+  });
+  // --- tasks -------------------------------------------------------------
+  const tkOut = cue("foc.rep");
+  const tk = group(g);
+  text(tk, 540, 450, "Sus tareas", { family: "Fraunces", weight: 900, size: 54, color: C.cream });
+  show(tk, cue("foc.task1", 0.1), tkOut);
+  const tasks = [
+    ["Estudiar la Palabra y enseñarla", "foc.task1", 0.3], ["Guiar la adoración y la oración", "foc.task1", 2.6],
+    ["Visitar a enfermos y a los que sufren", "foc.task2", 0.2], ["Cuidar a niños y nuevos miembros", "foc.task2", 2.2],
+    ["Buscar a los que se apartan", "foc.task3", 0.2],
+  ];
+  tasks.forEach(([w, c, off], i) => {
+    const r = group(g);
+    row(r, 560 + i * 120, w, C.pre, { num: String(i + 1), size: 34 });
+    show(r, cue(c, off), tkOut, { dy: 30 });
+  });
+  // --- representation ----------------------------------------------------
+  const cross = group(g);
+  el("rect", { x: 530, y: 410, width: 20, height: 150, rx: 6, fill: C.pre }, cross);
+  el("rect", { x: 480, y: 450, width: 120, height: 20, rx: 6, fill: C.pre }, cross);
+  text(cross, 540, 620, "La voluntad de Cristo", { family: "Fraunces", weight: 900, size: 50, color: C.pre });
+  show(cross, cue("foc.rep", 0.2), end, { dy: -30 });
+  draw(line(g, 540, 870, 540, 660, C.pre, { width: 6, marker: "arrowGold" }), cue("foc.rep", 1.2), 0.6, end);
+  const el2 = group(g);
+  elder(el2, 540, 960, 140);
+  show(el2, cue("foc.rep", 0.6), end, { dy: 30 });
+  const poll = group(g);
+  el("rect", { x: 760, y: 880, width: 170, height: 150, rx: 18, fill: "none", stroke: C.muted, "stroke-width": 4 }, poll);
+  [0, 1, 2].forEach((k) => el("rect", { x: 785, y: 905 + k * 40, width: 120, height: 14, rx: 7, fill: C.muted }, poll));
+  el("path", { d: "M 745 865 L 945 1045", stroke: C.epi, "stroke-width": 9, "stroke-linecap": "round" }, poll);
+  text(poll, 845, 1085, "Encuestas", { size: 28, weight: 800, color: C.muted });
+  show(poll, cue("foc.rep", 1.8), end, { dy: 0, scale: 0.6, px: 845, py: 955 });
+  const cons = group(g);
+  el("circle", { cx: 235, cy: 955, r: 70, fill: "none", stroke: C.cream, "stroke-width": 5 }, cons);
+  heart(cons, 235, 965, 70, C.cream);
+  text(cons, 235, 1085, "Conciencia", { size: 28, weight: 800, color: C.cream });
+  show(cons, cue("foc.rep", 3.2), end, { dy: 0, scale: 0.6, px: 235, py: 955 });
+  const sub = group(g);
+  chip(sub, 540, 1230, "«Pastor subalterno»", { size: 40, fill: C.pre });
+  show(sub, cue("foc.sub", 1.2), end, { dy: 0, scale: 0.6, py: 1230 });
+}
+
+function buildEnd() {
+  const S = "end";
+  const g = group();
+  [[minister, 230, C.blue], [elder, 540, C.pre], [deacon, 850, C.con]].forEach(([fn, x], i) => {
+    const k = group(g);
+    fn(k, x, 560, 120);
+    show(k, sceneStart[S] + 0.3 + i * 0.3, Infinity, { dy: 30 });
+  });
+  const t = group(g);
+  text(t, 540, 840, "Llamados a servir", { family: "Fraunces", weight: 900, size: 76 });
+  show(t, cue("end.call", 1.4), Infinity);
+  const emb = el("image", { href: "../../../assets/source/emblem.png", x: 540 - 80, y: 960, width: 160, height: 181 }, group(g));
+  show(emb.parentNode, cue("end.call", 2.0), Infinity, { dy: 0, scale: 0.85, py: 1050 });
+  const t1 = group(g);
+  text(t1, 540, 1230, "Iglesia Presbiteriana San Andrés", { family: "Fraunces", weight: 900, size: 46 });
+  text(t1, 540, 1292, "Guía de Formación de Ancianos", { size: 32, weight: 700, color: C.pre });
+  show(t1, cue("end.call", 2.4), Infinity);
+}
+
+function BUILD_ALL() {
+  buildIntro(); buildMinister(); buildElder(); buildDeacon(); buildElection(); buildFocus(); buildEnd();
+}
+
+// ---------------------------------------------------------------------------
+// Captions + progress bar
+// ---------------------------------------------------------------------------
+const capBox = document.getElementById("captions");
+const capEls = SCRIPT.map((c) => {
+  const d = document.createElement("div");
+  d.className = "cap";
+  d.innerHTML = `<span>${c.text}</span>`;
+  capBox.appendChild(d);
+  return d;
+});
+const capBand = el("rect", { x: 40, y: 1450, width: 1000, height: 340, rx: 44, fill: "rgba(10,17,36,0.45)" });
+const progressBg = el("rect", { x: 70, y: 1846, width: 940, height: 6, rx: 3, fill: "rgba(255,255,255,0.12)" });
+const progress = el("rect", { x: 70, y: 1846, width: 0, height: 6, rx: 3, fill: C.pre });
+
+function renderCaptions(t) {
+  SCRIPT.forEach((c, i) => {
+    const a = smooth((t - c.start + 0.1) / 0.25);
+    const next = SCRIPT[i + 1];
+    const until = next ? Math.min(next.start - 0.1, c.end + 1.2 + (c.hold || 0)) : c.end + 2.5;
+    const b = 1 - smooth((t - until) / 0.2);
+    capEls[i].style.opacity = Math.min(a, b);
+  });
+  progress.setAttribute("width", 940 * clamp(t / window.DURATION));
+}
+
+// ---------------------------------------------------------------------------
+// Load every face before measuring text (unused faces aren't loaded otherwise).
+const FACES = ["900 40px Fraunces", "700 40px Fraunces", "italic 600 40px Fraunces", "600 40px Manrope", "700 40px Manrope", "800 40px Manrope"];
+window.ready = Promise.all(FACES.map((f) => document.fonts.load(f))).then(() => document.fonts.ready).then(() => {
+  BUILD_ALL();
+  window.render(0);
+});
+window.render = (t) => {
+  anims.forEach((f) => f(t));
+  renderCaptions(t);
+};
+window.SCRIPT_TIMING = () => SCRIPT.map((c) => ({ start: c.start, end: c.end, text: c.text.replace(/<[^>]+>/g, ""), scene: c.scene }));
+</script>
+</body>
+</html>

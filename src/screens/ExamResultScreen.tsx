@@ -4,9 +4,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../navigation/types";
-import { PASS_PERCENT, QUIZ_BY_ID, percentOf, scoreByCategory } from "../content/exam";
-import { CATEGORIES_BY_ID } from "../content/categories";
-import { PACKS_BY_ID } from "../content/packs";
+import { PASS_PERCENT, QUESTIONS_BY_ID, percentOf, scoreByCategory } from "../content/exam";
+import { CATEGORY_SHORT_TITLE } from "../content/categories";
+import { PACKS_BY_ID } from "../content/course";
 import { useAppState } from "../state/AppState";
 import { useT } from "../lib/i18n";
 import { Icon } from "../components/icons/Icon";
@@ -46,7 +46,7 @@ export default function ExamResultScreen({ route, navigation }: Props) {
   const passed = percent >= PASS_PERCENT;
   const message =
     percent >= 90 ? t("result.msgExcellent") : passed ? t("result.msgPassed") : percent >= 50 ? t("result.msgClose") : t("result.msgStudy");
-  const byCategory = scoreByCategory(result, QUIZ_BY_ID);
+  const byCategory = scoreByCategory(result, QUESTIONS_BY_ID);
   const listed = result.answers.filter((a) => showAll || !a.correct);
   const wrongCount = result.total - result.correct;
 
@@ -82,7 +82,7 @@ export default function ExamResultScreen({ route, navigation }: Props) {
             return (
               <View key={c.category} style={[styles.catRow, i === byCategory.length - 1 && { borderBottomWidth: 0 }]}>
                 <View style={styles.catRowTop}>
-                  <Text style={styles.catName}>{CATEGORIES_BY_ID[c.category].shortTitle}</Text>
+                  <Text style={styles.catName}>{CATEGORY_SHORT_TITLE[c.category]}</Text>
                   <Text style={styles.catScore}>
                     {c.correct}/{c.total}
                   </Text>
@@ -115,7 +115,7 @@ export default function ExamResultScreen({ route, navigation }: Props) {
           </View>
         ) : (
           listed.map((a) => {
-            const q = QUIZ_BY_ID[a.questionId];
+            const q = QUESTIONS_BY_ID[a.questionId];
             if (!q) return null;
             const options = result.optionsById[a.questionId] ?? [q.correct, ...q.wrong];
             const chosenText = options[a.chosenIndex];

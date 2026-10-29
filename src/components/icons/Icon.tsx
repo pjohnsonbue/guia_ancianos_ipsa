@@ -11,7 +11,8 @@ export type IconName =
   | "refresh"
   | "clipboard"
   | "book"
-  | "award";
+  | "award"
+  | "play";
 
 interface Props {
   name: IconName;
@@ -104,6 +105,12 @@ export function Icon({ name, size = 20, color = "#152238", strokeWidth = 2 }: Pr
         <Svg {...common}>
           <Circle cx="12" cy="9" r="5.5" stroke={color} strokeWidth={strokeWidth} />
           <Path d="M8.5 13.5L7 21l5-2.5 5 2.5-1.5-7.5" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round" />
+        </Svg>
+      );
+    case "play":
+      return (
+        <Svg {...common}>
+          <Path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z" fill={color} />
         </Svg>
       );
     default:
